@@ -39,7 +39,7 @@ function soGetCustomers() {
 
 /** Fetch inventory items */
 function soGetInventoryItems() {
-  const data = Repository_getRows("Inventory");
+  const data = Inventory_getCurrentState("Inventory");
   Logger.log(data.length);
   if (data.length > 0) Logger.log(JSON.stringify(data[0]));
   return data;
