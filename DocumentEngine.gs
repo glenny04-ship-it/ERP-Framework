@@ -352,6 +352,30 @@ function Document_mergeDetails_(
     // submitted row.
     //--------------------------------------------------
 
+//--------------------------------------------------
+// TEMPORARY DIAGNOSTIC LOGGING
+//--------------------------------------------------
+
+if (existingForDocument) {
+
+  Document_logDetailChanges_(
+    table,
+    submittedPK,
+    existingForDocument,
+    row
+  );
+
+} else {
+
+  Document_logDetailAction_(
+    table,
+    submittedPK,
+    "INSERTED",
+    row
+  );
+
+}
+
     const result =
       Repository_upsert(
         table,
@@ -376,17 +400,28 @@ function Document_mergeDetails_(
 
     const rowPK = row[pk];
 
-    if (!submittedMap[String(rowPK)]) {
+if (!submittedMap[String(rowPK)]) {
 
-      Repository_delete(
-        table,
-        pk,
-        rowPK
-      );
+  //--------------------------------------------------
+  // TEMPORARY DIAGNOSTIC LOGGING
+  //--------------------------------------------------
 
-      deleted++;
+  Document_logDetailAction_(
+    table,
+    rowPK,
+    "DELETED",
+    row
+  );
 
-    }
+  Repository_delete(
+    table,
+    pk,
+    rowPK
+  );
+
+  deleted++;
+
+}
 
   });
 
@@ -563,24 +598,87 @@ function Document_save(documentType, document) {
 /**
  * TEST FUNCTIONS
  */
-function testDocumentGetHeaderSafe(documentType, id) {
+/**
+ * TEMPORARY DIAGNOSTIC LOGGING
+ *
+ * Logs field-level changes between an existing database row
+ * and the submitted row.
+ *
+ * Remove after Sales Order allocation testing is complete.
+ */
+function Document_logDetailChanges_(table, pk, oldRow, newRow) {
 
-  const header = Document_getHeader(documentType, id);
+  const fields = {};
 
-  return {
-    "SO Date": header["SO Date"]
-      ? Utilities.formatDate(
-          new Date(header["SO Date"]),
-          Session.getScriptTimeZone(),
-          "yyyy-MM-dd"
-        )
-      : "",
+  const oldObj = oldRow || {};
+  const newObj = newRow || {};
 
-    "SO ID": header["SO ID"],
-    "Customer ID": header["Customer ID"],
-    "Customer Name": header["Customer Name"],
-    "Invoice Num": header["Invoice Num"],
-    "State": header["State"],
-    "City": header["City"]
-  };
+  const fieldNames = {};
+
+  Object.keys(oldObj).forEach(field => {
+    fieldNames[field] = true;
+  });
+
+  Object.keys(newObj).forEach(field => {
+    fieldNames[field] = true;
+  });
+
+  Object.keys(fieldNames).forEach(field => {
+
+    const oldValue =
+      oldObj[field] === null ||
+      oldObj[field] === undefined
+        ? ""
+        : oldObj[field];
+
+    const newValue =
+      newObj[field] === null ||
+      newObj[field] === undefined
+        ? ""
+        : newObj[field];
+
+    if (String(oldValue) !== String(newValue)) {
+
+      fields[field] = {
+        oldValue: oldValue,
+        newValue: newValue
+      };
+
+    }
+
+  });
+
+  console.log(
+    JSON.stringify({
+      diagnostic: "DOCUMENT_DETAIL_CHANGE",
+      table: table,
+      primaryKey: pk,
+      action: Object.keys(fields).length
+        ? "UPDATED"
+        : "NO_CHANGE",
+      changes: fields
+    })
+  );
+}
+
+
+/**
+ * TEMPORARY DIAGNOSTIC LOGGING
+ *
+ * Logs insertion/deletion of detail rows.
+ *
+ * Remove after Sales Order allocation testing is complete.
+ */
+function Document_logDetailAction_(table, pk, action, row) {
+
+  console.log(
+    JSON.stringify({
+      diagnostic: "DOCUMENT_DETAIL_ACTION",
+      table: table,
+      primaryKey: pk,
+      action: action,
+      row: row || {}
+    })
+  );
+
 }
