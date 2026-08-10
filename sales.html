@@ -415,8 +415,7 @@
           <option>SO ID</option>
           <option>Customer Name</option>
           <option>Invoice Num</option>
-          <option>Receipt Status</option>
-          <option>Shipping Status</option>
+          <option>SO Status</option>
         </select>
         <input type="text" id="soSearchInput" placeholder="Search...">
         <button id="soBtnSearch">Search</button>
@@ -430,8 +429,7 @@
         <tr>
           <th>SO Date</th><th>SO ID</th><th>Customer ID</th><th>Customer Name</th>
           <th>Invoice Num</th><th>State</th><th>City</th><th>Total SO Amount</th>
-          <th>Total Received</th><th>SO Balance</th><th>Receipt Status</th>
-          <th>Shipping Status</th><th>Actions</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -606,8 +604,6 @@ function renderSOList(rows) {
   soAllData.forEach(r => {
 
     const totalAmt = parseFloat(r['Total SO Amount']) || 0;
-    const received = parseFloat(r['Total Received']) || 0;
-    const balance = parseFloat(r['SO Balance']) || 0;
 
     const tr = document.createElement('tr');
 
@@ -620,11 +616,6 @@ function renderSOList(rows) {
       <td>${escapeHtml(r['State'])}</td>
       <td>${escapeHtml(r['City'])}</td>
       <td>${totalAmt.toFixed(2)}</td>
-      <td>${received.toFixed(2)}</td>
-      <td>${balance.toFixed(2)}</td>
-      <td>${escapeHtml(r['Receipt Status'])}</td>
-      <td>${escapeHtml(r['Shipping Status'])}</td>
-      <td>
   <button class="btn"
       onclick= "soEditSalesOrder('${escapeHtml(r['SO ID'])}')">
       Edit
@@ -777,8 +768,7 @@ function openSalesOrderEditor(soDocument = null) {
             if (currentMode === "new") {
 
                 document.getElementById("soNewDate").value = new Date().toISOString().split("T")[0];
-                document.getElementById("soNewReceiptStatus").value = "Not Paid";
-                document.getElementById("soNewShippingStatus").value = "Not Shipped";
+                document.getElementById("soNewSOStatus").value = "Not Fulfilled";
 
                 // Generate Sales Order ID
                 google.script.run
@@ -852,10 +842,8 @@ function newSOFormBody() {
               <label>SO Date</label><br>
               <input type="date" id="soNewDate">
             </div>
-           <input type="hidden" id="soNewReceiptStatus" value="Not Paid">
-           <input type="hidden" id="soNewShippingStatus" value="Not Shipped">
+           <input type="hidden" id="soNewSOStatus" value="Not Fulfilled">
            <input type="hidden" id="soNewTotalAmount" value="0">
-           <input type="hidden" id="soNewBalance" value="0">
           </div>
         </div>
         <hr>
@@ -874,7 +862,11 @@ function newSOFormBody() {
                 <th style="display:none;">City</th>
                 <th style="display:none;">Invoice Num</th>
                 <th>Item Name</th><th>Item ID</th><th>Item Type</th><th>Item Category</th>
-                <th>Item Subcategory</th><th>QTY Sold</th><th>Unit Price</th>
+                <th>Item Subcategory</th>
+                <th>QTY Ordered</th>
+                <th contenteditable="false">QTY Delivered</th>
+                <th contenteditable="false">QTY Balance</th>
+                <th>Unit Price</th>
                 <th>Price Excl Tax</th><th>Tax Rate</th><th>Total Tax</th>
                 <th>Price Incl Tax</th><th>Shipping Fees</th><th>Total Sales Price</th>
                 <th>Remove</th>
@@ -976,14 +968,16 @@ if (existingRow) {
       <td class="soItemType"></td>
       <td class="soItemCat"></td>
       <td class="soItemSubcat"></td>
-      <td><input type="number" class="soQty" min="1" value="1"></td>
-      <td><input type="number" class="soUnitPrice" step="0.01" value="0.00"></td>
-      <td class="soPriceExcl">0.00</td>
-      <td><input type="number" class="soTaxRate" step="0.01" value="0.00"></td>
-      <td class="soTotalTax">0.00</td>
-      <td class="soPriceIncl">0.00</td>
-      <td><input type="number" class="soShipFees" step="0.01" value="0.00"></td>
-      <td class="soTotalSales">0.00</td>
+      <td><input type="number" class="soQty" min="1" value="1" style="width: 60px;"></td>
+      <td><input type="number" class="soDelQty" readonly style="width: 60px;"></td>
+      <td><input type="number" class="soBalQty" readonly style="width: 60px;"></td>
+      <td><input type="number" class="soUnitPrice" step="0.01" value="0.00" style="width: 60px;"></td>
+      <td class="soPriceExcl" style="width: 60px;">0.00</td>
+      <td><input type="number" class="soTaxRate" step="0.01" value="0.00" style="width: 60px;"></td>
+      <td class="soTotalTax" style="width: 60px;">0.00</td>
+      <td class="soPriceIncl" style="width: 60px;">0.00</td>
+      <td><input type="number" class="soShipFees" step="0.01" value="0.00" style="width: 60px;"></td>
+      <td class="soTotalSales" style="width: 60px;">0.00</td>
       <td><span class="remove-row" onclick="removeSOLine(this)">×</span></td>
 
     `;
@@ -1015,7 +1009,9 @@ if (existingRow) {
 
     if (existingRow) {
       $(sel).val(existingRow["Item Name"]).trigger("change"); // now safe, and fires the change handler above
-      tr.querySelector(".soQty").value       = existingRow["QTY Sold"];
+      tr.querySelector(".soQty").value       = existingRow["QTY Ordered"];
+      tr.querySelector(".soDelQty").value    = existingRow["QTY Delivered"];
+      tr.querySelector(".soBalQty").value    = existingRow["QTY Balance"];
       tr.querySelector(".soUnitPrice").value = existingRow["Unit Price"];
       tr.querySelector(".soTaxRate").value   = existingRow["Tax Rate"];
       tr.querySelector(".soShipFees").value  = existingRow["Shipping Fees"];
@@ -1085,36 +1081,8 @@ function soCalculateFormTotal() {
         totalField.value = total;
     }
 
-    // --------------------------------------------
-    // Calculate SO Balance
-    // --------------------------------------------
-
-    let totalReceived = 0;
-
-    if (currentMode === "edit" && currentDocument) {
-
-        totalReceived =
-            Number(
-                currentDocument.header?.["Total Received"]
-            ) || 0;
-    }
-
-    const balance =
-        total - totalReceived;
-
-    const balanceField =
-        document.getElementById("soNewBalance");
-
-    if (balanceField) {
-        balanceField.value = balance;
-    }
-
-    //return total;
-
     return {
-      total,
-      totalReceived,
-      balance
+      total
     };
 }
 
@@ -1146,14 +1114,8 @@ function validateSOHeader() {
 
 function buildSODTO() {
 
-  const { total, totalReceived, balance } = soCalculateFormTotal();
-
   // Check if we are editing an existing document
   const isEdit = typeof currentMode !== 'undefined' && currentMode === "edit" && currentDocument;
-
-  // Rules: If new SO, set defaults. If editing, preserve existing values.
-  const receiptStatus = isEdit ? currentDocument.header?.["Receipt Status"] : "Pending Payment";
-  const shippingStatus = isEdit ? currentDocument.header?.["Shipping Status"] : "Not Shipped";
 
   const master = {
     "SO Date": document.getElementById("soNewDate").value,
@@ -1163,11 +1125,7 @@ function buildSODTO() {
     "Invoice Num": document.getElementById("soNewInvoice").value,
     "State": document.getElementById("soNewState").value,
     "City": document.getElementById("soNewCity").value,
-    "Total SO Amount": total,
-    "Total Received": totalReceived,
-    "SO Balance": balance,
-    "Receipt Status": receiptStatus,
-    "Shipping Status": shippingStatus
+    "Total SO Amount": soCalculateFormTotal()
 };
 
   const details = [];
@@ -1191,7 +1149,9 @@ function buildSODTO() {
         "Item Type": tr.querySelector(".soItemType").innerText,
         "Item Category": tr.querySelector(".soItemCat").innerText,
         "Item Subcategory": tr.querySelector(".soItemSubcat").innerText,
-        "QTY Sold": Number(tr.querySelector(".soQty").value),
+        "QTY Ordered": Number(tr.querySelector(".soQty").value),
+        "QTY Delivered": Number(tr.querySelector(".soDelQty").value),
+        "QTY Balance": Number(tr.querySelector(".soBalQty").value),
         "Unit Price": Number(tr.querySelector(".soUnitPrice").value),
         "Price Excl Tax": Number(tr.querySelector(".soPriceExcl").innerText),
         "Tax Rate": Number(tr.querySelector(".soTaxRate").value),
@@ -1220,18 +1180,6 @@ function saveNewSO() {
         currentMode === "edit"
             ? "Sales Order updated successfully."
             : "Sales Order saved successfully.";
-/*
-    google.script.run
-        .withSuccessHandler(() => {
-            closeModal();
-            soRefreshSOList();
-            alert(successMessage);
-        })
-        .withFailureHandler(err => {
-            console.error(err);
-            alert(err.message);
-        })
-        .soSaveSalesOrder("SalesOrder", payload); */
 
        google.script.run
     .withSuccessHandler(() => {
