@@ -176,15 +176,46 @@ function Inventory_applySOAllocationDelta(deltaMap) {
     const delta = Number(deltaMap[itemID]) || 0;
     const currentAllocated = Number(item["QTY Allocated"]) || 0;
     const newAllocated = currentAllocated + delta;
+    const onHand = Number(item["QTY On-Hand"]) || 0;
+    const oldAvailable = onHand - currentAllocated;
+    const newAvailable = onHand - newAllocated;
 
     return {
       itemID: itemID,
       delta: delta,
       oldAllocated: currentAllocated,
       newAllocated: newAllocated,
-      onHand: Number(item["QTY On-Hand"]) || 0,
-      available: (Number(item["QTY On-Hand"]) || 0) - newAllocated
+      onHand: onHand,
+      oldAvailable: oldAvailable,
+      newAvailable: newAvailable
     };
+  });
+
+  // TEMPORARY DIAGNOSTIC LOGGING
+  changes.forEach(change => {
+    console.log(
+      JSON.stringify({
+        diagnostic: "INVENTORY_ALLOCATION_UPDATE",
+        table: "Inventory",
+        primaryKeyField: "Item ID",
+        primaryKeyValue: change.itemID,
+        fields: {
+          "QTY Allocated": {
+            oldValue: change.oldAllocated,
+            newValue: change.newAllocated,
+            delta: change.delta
+          },
+          "QTY Available": {
+            oldValue: change.oldAvailable,
+            newValue: change.newAvailable,
+            delta: change.newAvailable - change.oldAvailable,
+            persisted: false,
+            derivedFrom: "QTY On-Hand - QTY Allocated"
+          }
+        },
+        reason: "SO allocation reconciliation"
+      })
+    );
   });
 
   // Apply the complete validated change set. Each affected item is updated
