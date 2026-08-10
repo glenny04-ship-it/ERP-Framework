@@ -842,7 +842,7 @@ function newSOFormBody() {
               <label>SO Date</label><br>
               <input type="date" id="soNewDate">
             </div>
-           <input type="hidden" id="soNewSOStatus" value="Not Fulfilled">
+           <input type="hidden" id="soNewSOStatus" value="Open">
            <input type="hidden" id="soNewTotalAmount" value="0">
           </div>
         </div>
@@ -861,8 +861,9 @@ function newSOFormBody() {
                 <th style="display:none;">State</th>
                 <th style="display:none;">City</th>
                 <th style="display:none;">Invoice Num</th>
-                <th>Item Name</th><th>Item ID</th><th>Item Type</th><th>Item Category</th>
-                <th>Item Subcategory</th>
+                <th>Item Name</th><th>Item ID</th><th>Item Type</th>
+                <th style="display:none;">Item Category</th>
+                <th style="display:none;">Item Subcategory</th>
                 <th>QTY Ordered</th>
                 <th contenteditable="false">QTY Delivered</th>
                 <th contenteditable="false">QTY Balance</th>
@@ -965,13 +966,13 @@ if (existingRow) {
       <td style="display:none">${escapeHtml(inv)}</td>
       <td><select class="soItemName" style="width:150px"></select></td>
       <td class="soItemID"></td>
-      <td class="soItemType"></td>
-      <td class="soItemCat"></td>
-      <td class="soItemSubcat"></td>
+      <td class="soItemType" style="display:none"></td>
+      <td class="soItemCat" style="display:none"></td>
+      <td class="soItemSubcat style="display:none""></td>
       <td><input type="number" class="soQty" min="1" value="1" style="width: 60px;"></td>
-      <td><input type="number" class="soDelQty" readonly style="width: 60px;"></td>
-      <td><input type="number" class="soBalQty" readonly style="width: 60px;"></td>
-      <td><input type="number" class="soUnitPrice" step="0.01" value="0.00" style="width: 60px;"></td>
+      <td><input type="number" class="soDelQty" value="0" readonly style="width: 60px;"></td>
+      <td><input type="number" class="soBalQty" value="0" readonly style="width: 60px;"></td>
+      <td><input type="number" class="soUnitPrice" step="0.01" value="0.00" style="width: 100px;"></td>
       <td class="soPriceExcl" style="width: 60px;">0.00</td>
       <td><input type="number" class="soTaxRate" step="0.01" value="0.00" style="width: 60px;"></td>
       <td class="soTotalTax" style="width: 60px;">0.00</td>
@@ -1039,51 +1040,65 @@ function removeSOLine(button) {
 
 function recalcLine(tr) {
 
-    const qty = Number(tr.querySelector('.soQty').value) || 0;
-    const unitPrice = Number(tr.querySelector('.soUnitPrice').value) || 0;
-    const taxRate = Number(tr.querySelector('.soTaxRate').value) || 0;
-    const shipping = Number(tr.querySelector('.soShipFees').value) || 0;
-    const priceExcl = qty * unitPrice;
-    const totalTax = priceExcl * taxRate / 100;
-    const priceIncl = priceExcl + totalTax;
-    const totalSales = priceIncl + shipping;
-    tr.querySelector('.soPriceExcl').innerText = priceExcl.toFixed(2);
-    tr.querySelector('.soTotalTax').innerText =  totalTax.toFixed(2);
-    tr.querySelector('.soPriceIncl').innerText = priceIncl.toFixed(2);
-    tr.querySelector('.soTotalSales').innerText = totalSales.toFixed(2);
+  const qty =
+    Number(tr.querySelector('.soQty').value) || 0;
 
-    // Recalculate Sales Order total
-    soCalculateFormTotal();
+  const unitPrice =
+    Number(tr.querySelector('.soUnitPrice').value) || 0;
+
+  const taxRate =
+    Number(tr.querySelector('.soTaxRate').value) || 0;
+
+  const shipping =
+    Number(tr.querySelector('.soShipFees').value) || 0;
+
+  const priceExcl = qty * unitPrice;
+  const totalTax = priceExcl * taxRate / 100;
+  const priceIncl = priceExcl + totalTax;
+  const totalSales = priceIncl + shipping;
+
+  tr.querySelector('.soPriceExcl').innerText =
+    priceExcl.toFixed(2);
+
+  tr.querySelector('.soTotalTax').innerText =
+    totalTax.toFixed(2);
+
+  tr.querySelector('.soPriceIncl').innerText =
+    priceIncl.toFixed(2);
+
+  tr.querySelector('.soTotalSales').innerText =
+    totalSales.toFixed(2);
+
+  // Recalculate Sales Order total
+  soCalculateFormTotal();
 }
 
 
 function soCalculateFormTotal() {
 
-    let total = 0;
+  let total = 0;
 
-    document
-        .querySelectorAll("#soNewLines tbody tr")
-        .forEach(tr => {
+  document
+    .querySelectorAll("#soNewLines tbody tr")
+    .forEach(tr => {
 
-            const lineTotal =
-                Number(
-                    tr.querySelector(".soTotalSales")?.innerText
-                ) || 0;
+      const lineTotal =
+        Number(
+          tr.querySelector(".soTotalSales")?.innerText
+        ) || 0;
 
-            total += lineTotal;
-        });
+      total += lineTotal;
+    });
 
-    // Update SO Total Amount
-    const totalField =
-        document.getElementById("soNewTotalAmount");
+  // Update SO Total Amount
+  const totalField =
+    document.getElementById("soNewTotalAmount");
 
-    if (totalField) {
-        totalField.value = total;
-    }
+  if (totalField) {
+    totalField.value = total;
+  }
 
-    return {
-      total
-    };
+  return total;
 }
 
 function validateSOHeader() {
@@ -1125,7 +1140,8 @@ function buildSODTO() {
     "Invoice Num": document.getElementById("soNewInvoice").value,
     "State": document.getElementById("soNewState").value,
     "City": document.getElementById("soNewCity").value,
-    "Total SO Amount": soCalculateFormTotal()
+    "Total SO Amount": soCalculateFormTotal(),
+    "SO Status": document.getElementById("soNewSOStatus").value,
 };
 
   const details = [];
@@ -1175,25 +1191,85 @@ function buildSODTO() {
 
 function saveNewSO() {
 
-    const payload = buildSODTO();
-    const successMessage =
-        currentMode === "edit"
-            ? "Sales Order updated successfully."
-            : "Sales Order saved successfully.";
+  // Build the complete Sales Order DTO
+  const payload = buildSODTO();
 
-       google.script.run
-    .withSuccessHandler(() => {
-        closeModal();
-        soRefreshSOList();
+  // Basic client-side validation
+  if (!payload || typeof payload !== "object") {
+    alert("Unable to build Sales Order payload.");
+    return;
+  }
 
-        alert(successMessage);
+  if (!payload.master || !payload.master["SO ID"]) {
+    alert("Sales Order ID is required.");
+    return;
+  }
+
+  if (!payload.master["Customer ID"]) {
+    alert("Customer is required.");
+    return;
+  }
+
+  if (
+    !payload.details ||
+    !Array.isArray(payload.details["SalesDetails"]) ||
+    payload.details["SalesDetails"].length === 0
+  ) {
+    alert("Sales Order must contain at least one detail line.");
+    return;
+  }
+
+  const successMessage =
+    currentMode === "edit"
+      ? "Sales Order updated successfully."
+      : "Sales Order saved successfully.";
+
+  // Prevent duplicate submissions while save is in progress
+  const saveButton =
+    document.getElementById("soBtnSave");
+
+  if (saveButton) {
+    saveButton.disabled = true;
+  }
+
+  google.script.run
+
+    .withSuccessHandler(result => {
+
+      if (saveButton) {
+        saveButton.disabled = false;
+      }
+
+      console.log(
+        "Sales Order save result:",
+        result
+      );
+
+      closeModal();
+      soRefreshSOList();
+
+      alert(successMessage);
     })
+
     .withFailureHandler(err => {
-        console.error("Sales Order save failed:", err);
-        alert(err && err.message ? err.message : String(err));
-    })
-    .soSaveSalesOrder(payload);
 
+      if (saveButton) {
+        saveButton.disabled = false;
+      }
+
+      console.error(
+        "Sales Order save failed:",
+        err
+      );
+
+      alert(
+        err && err.message
+          ? err.message
+          : String(err)
+      );
+    })
+
+    .soSaveSalesOrder(payload);
 }
 
 function renderSODocument(result) {
@@ -1251,6 +1327,7 @@ async function loadSalesOrder(doc) {
     document.getElementById("soNewDate").value = soDate ? String(soDate).substring(0, 10) : "";
     document.getElementById("soNewState").value = header["State"] || "";
     document.getElementById("soNewCity").value = header["City"] || "";
+    document.getElementById("soNewSOStatus").value = header["SO Status"] || "";
 
 
     // =========================
