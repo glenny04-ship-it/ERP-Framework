@@ -11,137 +11,62 @@
  * ============================================================
  */
 
-
 /**
- * Save a document consisting of:
- *  - one header record
- *  - zero or more detail records
+ * Returns the configured document definition.
  *
- * @param {Object} document
- * @returns {Object}
+ * Registry.Documents contains metadata only:
+ * header table, detail tables, primary key, views, etc.
  */
-function Document_save(document) {
-
-  Logger.log("Document_save entered");
-  Logger.log(JSON.stringify(document));
-
-  if (!document) {
-    throw new Error("Document is required.");
-  }
-
-  if (!document.header) {
-    throw new Error("Document header missing.");
-  }
-
-  if (!document.header.table) {
-    throw new Error("Header table missing.");
-  }
-
-  if (!document.header.record) {
-    throw new Error("Header record missing.");
-  }
-
-  //--------------------------------------------------
-  // Validation callback
-  //--------------------------------------------------
-
-  if (
-    document.callbacks &&
-    typeof document.callbacks.validate === "function"
-  ) {
-    document.callbacks.validate(document);
-  }
-
-  //--------------------------------------------------
-  // Header
-  //--------------------------------------------------
-
-  Repository_insert(
-    document.header.table,
-    document.header.record
-  );
-
-  //--------------------------------------------------
-  // Details
-  //--------------------------------------------------
-
-  if (
-    document.details &&
-    document.details.records &&
-    document.details.records.length
-  ) {
-
-    Repository_insert(
-      document.details.table,
-      document.details.records
-    );
-
-  }
-
-  //--------------------------------------------------
-  // After Save callback
-  //--------------------------------------------------
-
-  if (
-    document.callbacks &&
-    typeof document.callbacks.afterSave === "function"
-  ) {
-
-    document.callbacks.afterSave(document);
-
-  }
-
-  return {
-    success: true
-  };
-
-}
-
 function Document_getConfig(documentType) {
 
   const config = Registry.Documents[documentType];
 
   if (!config) {
-
     throw new Error(
       `Unknown document type: ${documentType}`
     );
-
   }
 
   return config;
-
 }
 
+
+/**
+ * Retrieves a document header by primary key.
+ */
 function Document_getHeader(documentType, id) {
 
-  const config =
-    Document_getConfig(documentType);
-
-  const headers =
-    Repository_getRows(config.headerTable);
+  const config = Document_getConfig(documentType);
 
   const record = Repository_getById(
-  config.headerTable,
-  id
-);
-
-if (!record) {
-
-  throw new Error(
-    `${documentType} not found (${id})`
+    config.headerTable,
+    id
   );
 
+  if (!record) {
+    throw new Error(
+      `${documentType} not found (${id})`
+    );
+  }
+
+  return record;
 }
 
-return record;
 
-}
-
+/**
+ * Retrieves all configured detail tables for a document.
+ *
+ * Returned shape:
+ *
+ * {
+ *   SalesDetails: [...],
+ *   Charges: [...],
+ *   ...
+ * }
+ */
 function Document_getDetails(documentType, id) {
 
-  const config =
-    Document_getConfig(documentType);
+  const config = Document_getConfig(documentType);
 
   const details = {};
 
@@ -158,72 +83,111 @@ function Document_getDetails(documentType, id) {
   });
 
   return details;
-
 }
 
 
+/**
+ * Retrieves a complete document DTO.
+ *
+ * DTO shape:
+ * {
+ *   type,
+ *   key,
+ *   header,
+ *   details: {
+ *     <detailTable>: [...]
+ *   },
+ *   view
+ * }
+ */
 function Document_get(documentType, id) {
 
-    const config = Document_getConfig(documentType);
+  const config = Document_getConfig(documentType);
 
-    const header = Document_getHeader(documentType, id);
+  const header = Document_getHeader(documentType, id);
 
-    if (!header) {
-        return null;
-    }
+  if (!header) {
+    return null;
+  }
 
-    const document = {
-        type: documentType,
-        key: header[config.primaryKey],
-        header: header,
-        details: Document_getDetails(documentType, id),
-        view: Registry.Views[documentType]
-    };
+  const document = {
+    type: documentType,
+    key: header[config.primaryKey],
+    header: header,
+    details: Document_getDetails(documentType, id),
+    view: Registry.Views[documentType]
+  };
 
-    return JSON.parse(JSON.stringify(document));
+  return JSON.parse(JSON.stringify(document));
 }
 
+
+/**
+ * Deletes a document and all configured detail rows.
+ *
+ * Details are deleted before the header to avoid leaving
+ * orphaned detail records.
+ *
+ * Locking serializes document deletion against document saves.
+ * It does not provide database-style rollback.
+ */
 function Document_delete(documentType, id) {
 
-  const config =
-    Document_getConfig(documentType);
+  const config = Document_getConfig(documentType);
 
-  // Delete all details first
-  config.detailTables.forEach(detail => {
+  const lock = LockService.getScriptLock();
 
+  if (!lock.tryLock(30000)) {
+    throw new Error(
+      "Document_delete: Could not acquire lock. " +
+      "Another document operation is in progress — please try again."
+    );
+  }
+
+  try {
+
+    // Delete all details first.
+    config.detailTables.forEach(detail => {
+
+      Repository_delete(
+        detail.table,
+        detail.foreignKey,
+        id
+      );
+
+    });
+
+    // Delete header.
     Repository_delete(
-      detail.table,
-      detail.foreignKey,
+      config.headerTable,
+      config.primaryKey,
       id
     );
 
-  });
+    return true;
 
-  // Delete header
-  Repository_delete(
-    config.headerTable,
-    config.primaryKey,
-    id
-  );
-
-  return true;
-
+  } finally {
+    lock.releaseLock();
+  }
 }
+
 
 /**
  * Merges submitted detail rows into an existing document.
  *
  * Responsibilities:
- *  - Update existing rows
+ *  - Update existing rows belonging to this document
  *  - Insert new rows
  *  - Delete removed rows
  *  - Maintain display order
+ *  - Prevent a detail primary key from being reassigned
+ *    from another document
  *
  * Returns:
  * {
- *    inserted : Number,
- *    updated  : Number,
- *    deleted  : Number
+ *   inserted : Number,
+ *   updated  : Number,
+ *   deleted  : Number
  * }
  */
 function Document_mergeDetails_(
@@ -233,20 +197,39 @@ function Document_mergeDetails_(
   submittedRows
 ) {
 
-  submittedRows = submittedRows || [];
+  if (!detailConfig || !detailConfig.table) {
+    throw new Error(
+      "Document_mergeDetails_: Invalid detail configuration."
+    );
+  }
+
+  if (parentID === null || parentID === undefined || parentID === "") {
+    throw new Error(
+      `Document_mergeDetails_: Missing parent ID for table ${detailConfig.table}.`
+    );
+  }
+
+  if (submittedRows === null || submittedRows === undefined) {
+    submittedRows = [];
+  }
+
+  if (!Array.isArray(submittedRows)) {
+    throw new Error(
+      `Document_mergeDetails_: Expected an array for ${detailConfig.table}.`
+    );
+  }
 
   const table = detailConfig.table;
   const foreignKey = detailConfig.foreignKey;
 
   const repoConfig = Repository_getConfig_(table);
-
   const pk = repoConfig.primaryKey;
 
   const displayOrderField =
     detailConfig.displayOrderField || null;
 
   //--------------------------------------------------
-  // Existing rows
+  // Existing rows belonging to this document
   //--------------------------------------------------
 
   const existingRows =
@@ -254,6 +237,20 @@ function Document_mergeDetails_(
       .filter(r =>
         String(r[foreignKey]) === String(parentID)
       );
+
+  //--------------------------------------------------
+  // Existing rows keyed by primary key
+  //--------------------------------------------------
+
+  const existingByPK = {};
+
+  existingRows.forEach(row => {
+    const rowPK = row[pk];
+
+    if (rowPK !== null && rowPK !== undefined && rowPK !== "") {
+      existingByPK[String(rowPK)] = row;
+    }
+  });
 
   //--------------------------------------------------
   // Statistics
@@ -270,37 +267,90 @@ function Document_mergeDetails_(
   const submittedMap = {};
 
   //--------------------------------------------------
-  // Upsert submitted rows
+  // Validate and upsert submitted rows
   //--------------------------------------------------
 
   submittedRows.forEach((row, index) => {
 
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      throw new Error(
+        `Document_mergeDetails_: Invalid detail row at index ${index}.`
+      );
+    }
+
+    const submittedPK = row[pk];
+
+    if (
+      submittedPK === null ||
+      submittedPK === undefined ||
+      submittedPK === ""
+    ) {
+      throw new Error(
+        `Document_mergeDetails_: Missing primary key "${pk}" ` +
+        `for ${table} row at index ${index}.`
+      );
+    }
+
+    const submittedPKKey = String(submittedPK);
+
+    //--------------------------------------------------
+    // Duplicate primary key protection
+    //--------------------------------------------------
+
+    if (submittedMap[submittedPKKey]) {
+      throw new Error(
+        `Document_mergeDetails_: Duplicate primary key "${submittedPK}" ` +
+        `submitted for ${table}.`
+      );
+    }
+
+    //--------------------------------------------------
+    // Determine whether this is an existing detail
+    // belonging to the current document.
+    //--------------------------------------------------
+
+    const existingForDocument =
+      existingByPK[submittedPKKey];
+
+    //--------------------------------------------------
+    // If the PK exists in the repository but is NOT
+    // one of this document's existing rows, reject it.
+    //
+    // This prevents a submitted detail ID from another
+    // document being reassigned to the current document.
+    //--------------------------------------------------
+
+    const repositoryRecord =
+      Repository_getById(table, submittedPK);
+
+    if (repositoryRecord && !existingForDocument) {
+      throw new Error(
+        `Document_mergeDetails_: Detail ${submittedPK} ` +
+        `already belongs to another document and cannot be reassigned.`
+      );
+    }
+
+    //--------------------------------------------------
+    // Force the detail's parent to the document being
+    // saved. The ownership check above ensures an
+    // existing detail cannot be moved across documents.
+    //--------------------------------------------------
+
     row[foreignKey] = parentID;
 
-    //------------------------------------------
+    //--------------------------------------------------
     // Display Order
-    //------------------------------------------
+    //--------------------------------------------------
 
     if (displayOrderField) {
-
       row[displayOrderField] = index + 1;
-
     }
 
-    //------------------------------------------
-    // New row
-    //------------------------------------------
-
-    if (!row[pk]) {
-
-      row[pk] = Document_generateDetailID_(
-        documentConfig,
-        detailConfig,
-        parentID,
-        existingRows
-      );
-
-    }
+    //--------------------------------------------------
+    // Detail ID is generated client-side (see sales.html
+    // addSOLine()) and is expected to be present on every
+    // submitted row.
+    //--------------------------------------------------
 
     const result =
       Repository_upsert(
@@ -309,16 +359,12 @@ function Document_mergeDetails_(
       );
 
     if (result.action === "inserted") {
-
       inserted++;
-
     } else {
-
       updated++;
-
     }
 
-    submittedMap[row[pk]] = true;
+    submittedMap[submittedPKKey] = true;
 
   });
 
@@ -327,14 +373,21 @@ function Document_mergeDetails_(
   //--------------------------------------------------
 
   existingRows.forEach(row => {
-    if (!submittedMap[row[pk]]) {
+
+    const rowPK = row[pk];
+
+    if (!submittedMap[String(rowPK)]) {
+
       Repository_delete(
         table,
         pk,
-        row[pk]
+        rowPK
       );
+
       deleted++;
+
     }
+
   });
 
   //--------------------------------------------------
@@ -344,119 +397,190 @@ function Document_mergeDetails_(
     updated: updated,
     deleted: deleted
   };
-
 }
 
-function Document_create(documentType, document) {
-
-    const config = Registry.Documents[documentType];
-
-    // Insert header
-    Repository_insert(config.headerTable, document.master);
-
-    // Insert all detail tables
-    for (const detailConfig of config.detailTables) {
-        const rows = document.details || [];
-        if (rows.length > 0) {
-            Repository_insert(detailConfig.table, rows);
-        }
-    }
-
-    return {
-        success: true
-    };
-}
-
-function Document_update(documentType, document) {
-
-  const config = Registry.Documents[documentType];
-
-  if (!config) {
-    throw new Error(
-      "Document configuration not found: " + documentType
-    );
-  }
-  const headerPK =
-      Registry.Tables[config.headerTable].primaryKey;
-
-  Repository_update(
-      config.headerTable,
-      document.master
-  );
-  for (const detailConfig of config.detailTables) {
-
-      Document_mergeDetails_(
-          config,
-          detailConfig,
-          document.master[headerPK],
-          document.details || []
-      );
-
-  }
-  return {
-      success: true
-  };
-}
 
 /**
- * Generates
- * SO000123-04
- * PO000045-03
+ * Saves a document (header + details), whether it is brand new
+ * or an existing document being edited.
+ *
+ * The header primary key must already be present on
+ * document.master before this function is called.
+ *
+ * Detail rows are supplied keyed by configured detail-table name:
+ *
+ * {
+ *   master: {...},
+ *   details: {
+ *     SalesDetails: [...]
+ *   }
+ * }
+ *
+ * This function serializes concurrent document saves using
+ * LockService. It does NOT provide database-style transaction
+ * rollback: if a later sheet operation fails, earlier successful
+ * writes remain committed.
+ *
+ * @param {string} documentType
+ * @param {Object} document
+ * @param {Object} document.master Header record
+ * @param {Object} document.details Detail arrays keyed by table name
+ * @returns {Object}
  */
-function generateParentSequenceID(
-  parentID,
-  existingRows,
-  primaryKey
-) {
+function Document_save(documentType, document) {
 
-  let maxSeq = 0;
+  const config = Document_getConfig(documentType);
 
-  existingRows.forEach(row => {
+  if (!document || typeof document !== "object") {
+    throw new Error(
+      "Document_save: Document payload is required."
+    );
+  }
 
-    const id = String(row[primaryKey]);
+  if (!document.master || typeof document.master !== "object") {
+    throw new Error(
+      "Document_save: Document master/header is required."
+    );
+  }
 
-    const parts = id.split("-");
+  const headerConfig =
+    Registry.Tables[config.headerTable];
 
-    if (parts.length < 2) return;
+  if (!headerConfig || !headerConfig.primaryKey) {
+    throw new Error(
+      `Document_save: Invalid header table configuration for ${config.headerTable}.`
+    );
+  }
 
-    const seq = Number(parts[1]);
+  const headerPK = headerConfig.primaryKey;
+  const parentID = document.master[headerPK];
 
-    if (!isNaN(seq) && seq > maxSeq) {
+  if (
+    parentID === null ||
+    parentID === undefined ||
+    parentID === ""
+  ) {
+    throw new Error(
+      `Document_save: Missing header primary key "${headerPK}".`
+    );
+  }
 
-      maxSeq = seq;
+  const details =
+    document.details === null ||
+    document.details === undefined
+      ? {}
+      : document.details;
+
+  if (
+    typeof details !== "object" ||
+    Array.isArray(details)
+  ) {
+    throw new Error(
+      "Document_save: document.details must be an object keyed by detail table name."
+    );
+  }
+
+  //--------------------------------------------------
+  // Detail validation
+  //
+  // A document transaction must contain at least one
+  // detail row across its configured detail tables.
+  //
+  // This validation intentionally runs BEFORE the header
+  // upsert so that:
+  //   - a new document with no details is rejected
+  //   - an existing document cannot be saved after all
+  //     details have been removed
+  //   - no header mutation occurs when validation fails
+  //--------------------------------------------------
+
+  let totalDetailRows = 0;
+
+  for (const detailConfig of config.detailTables) {
+
+    const rowsForTable =
+      details[detailConfig.table] || [];
+
+    if (!Array.isArray(rowsForTable)) {
+      throw new Error(
+        `Document_save: Details for ${detailConfig.table} must be an array.`
+      );
+    }
+
+    totalDetailRows += rowsForTable.length;
+  }
+
+  if (totalDetailRows === 0) {
+    throw new Error(
+      `${documentType} cannot be saved without at least one detail line.`
+    );
+  }
+
+  // Serialize document saves so concurrent Repository writes
+  // cannot interleave.
+  const lock = LockService.getScriptLock();
+
+  if (!lock.tryLock(30000)) {
+    throw new Error(
+      "Document_save: Could not acquire lock. " +
+      "Another document operation is in progress — please try again."
+    );
+  }
+
+  try {
+
+    const headerResult = Repository_upsert(
+      config.headerTable,
+      document.master
+    );
+
+    for (const detailConfig of config.detailTables) {
+
+      const rowsForTable =
+        details[detailConfig.table] || [];
+
+      Document_mergeDetails_(
+        config,
+        detailConfig,
+        parentID,
+        rowsForTable
+      );
 
     }
 
-  });
+    return {
+      success: true,
+      action: headerResult.action
+    };
 
-  return (
-    parentID +
-    "-" +
-    String(maxSeq + 1).padStart(2, "0")
-  );
+  } finally {
+    lock.releaseLock();
+  }
 
 }
 
-// TEST FUNCTIONS
 
+/**
+ * TEST FUNCTIONS
+ */
 function testDocumentGetHeaderSafe(documentType, id) {
 
-    const header = Document_getHeader(documentType, id);
+  const header = Document_getHeader(documentType, id);
 
-    return {
-        "SO Date": header["SO Date"]
-            ? Utilities.formatDate(
-                new Date(header["SO Date"]),
-                Session.getScriptTimeZone(),
-                "yyyy-MM-dd"
-            )
-            : "",
+  return {
+    "SO Date": header["SO Date"]
+      ? Utilities.formatDate(
+          new Date(header["SO Date"]),
+          Session.getScriptTimeZone(),
+          "yyyy-MM-dd"
+        )
+      : "",
 
-        "SO ID": header["SO ID"],
-        "Customer ID": header["Customer ID"],
-        "Customer Name": header["Customer Name"],
-        "Invoice Num": header["Invoice Num"],
-        "State": header["State"],
-        "City": header["City"]
-    };
+    "SO ID": header["SO ID"],
+    "Customer ID": header["Customer ID"],
+    "Customer Name": header["Customer Name"],
+    "Invoice Num": header["Invoice Num"],
+    "State": header["State"],
+    "City": header["City"]
+  };
 }
