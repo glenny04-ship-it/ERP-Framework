@@ -4,54 +4,1392 @@
   <base target="_top">
   <meta charset="UTF-8">
   <title>Sales Orders</title>
+
+  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css?family=Poppins:400,600|Roboto:400,500|Montserrat:400,500" rel="stylesheet">
+  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+
+  <!-- jQuery (required by Select2) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+  <!-- Select2 CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet" />
+
+  <!-- Select2 JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js">
+  </script>
+
+
   <style>
-    body{margin:0;font-family:Poppins,sans-serif;background:#f4f6f8;color:#333}.container{padding:20px}.flex{display:flex;align-items:center}.flex-space{display:flex;justify-content:space-between;align-items:center}h1,h2,h3{margin:0}.btn,button{background:#008b8b;color:#fff;border:0;padding:8px 14px;margin:0 5px;border-radius:4px;cursor:pointer;font-family:Roboto,sans-serif}.btn:hover,button:hover{background:#006f6f}.btn-clear{background:#ccc;color:#333}input,select{padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:.9rem}table{width:100%;border-collapse:collapse;margin-top:15px}th,td{padding:8px;border:1px solid #e2e2e2;font-size:.88rem;white-space:nowrap}th{background:#e8f7f7;position:sticky;top:0;z-index:2}tbody tr:nth-child(even){background:#fafafa}.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:9999}.modal{background:#fff;border-radius:6px;width:90vw;max-height:90vh;overflow:auto;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,.2)}.modal-footer{text-align:right;margin-top:15px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.field label{display:block;font-size:.8rem;margin-bottom:3px}.readonly{background:#f3f3f3}.danger{color:#d9534f;cursor:pointer;font-weight:600}.status{font-weight:600}.processing{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:10000;font-size:1.2rem;color:#008b8b}.select2-container--open .select2-dropdown{z-index:10000!important}
-  </style>
+  :root {
+    /* Sonsi Brand Palette */
+    --brand-burgundy: #78141D;
+    --brand-burgundy-dark: #4A080E;
+    --brand-burgundy-light: #941B26;
+    --brand-gold: #E5C058;
+    --brand-gold-bright: #FBE6A3;
+    --brand-gold-dark: #B58A2B;
+    --brand-cream: #FAF6EE;
+    --text-dark: #2C1810;
+    --text-muted: #6B5B52;
+    --border-color: #E8DCCB;
+  }
+
+  /* === Base Styles === */
+
+  body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background: var(--brand-cream);
+    color: var(--text-dark);
+  }
+  
+  h1, h2 { 
+    margin: 0; 
+  }
+
+  .container { 
+    padding: 24px; 
+  }
+
+  .flex { 
+    display: flex; 
+    align-items: center; 
+  }
+
+  .flex-space { 
+    justify-content: space-between; 
+  }
+
+  /* === Header === */
+  #soHeader { 
+    margin-bottom: 20px; 
+  }
+
+  #soHeader h1 { 
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.8rem; 
+    font-weight: 700; 
+    color: var(--brand-burgundy-dark);
+  }
+
+  #soHeader h2 { 
+    font-size: 0.95rem; 
+    font-weight: 400; 
+    color: var(--text-muted); 
+    margin-top: 4px;
+  }
+
+  /* === Action Bar & Search Group (Matching Customer Page) === */
+  .action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .search-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-left: auto; /* Aligns filter and search controls to the right side */
+  }
+
+  .search-select {
+    padding: 9px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: #FFFFFF;
+    color: var(--text-dark);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.9rem;
+  }
+
+  .search-input {
+    padding: 9px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    width: 250px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    background-color: #FFFFFF;
+  }
+
+  .search-input:focus,
+  .search-select:focus {
+    border-color: var(--brand-burgundy);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(120, 20, 29, 0.15);
+  }
+
+  /* === Buttons & Inputs === */
+  button, .btn {
+    background: linear-gradient(180deg, var(--brand-burgundy-light) 0%, var(--brand-burgundy) 100%);
+    color: var(--brand-gold-bright);
+    border: 1px solid var(--brand-gold-dark);
+    padding: 9px 16px;
+    margin: 0 2px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 5px rgba(120, 20, 29, 0.15);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  button:hover, .btn:hover { 
+    background: var(--brand-burgundy-dark); 
+    color: #FFFFFF;
+    border-color: var(--brand-gold);
+    transform: translateY(-1px);
+  }
+
+  .btn-clear { 
+    background: #FFFFFF; 
+    color: var(--brand-burgundy); 
+    border: 1px solid var(--border-color);
+    box-shadow: none;
+  }
+
+  .btn-clear:hover {
+    background: var(--brand-cream);
+    color: var(--brand-burgundy-dark);
+    border-color: var(--brand-burgundy-light);
+  }
+
+  input, select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    font-family: 'Poppins', sans-serif;
+    color: var(--text-dark);
+    background-color: #FFFFFF;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--brand-burgundy);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(120, 20, 29, 0.15);
+  }
+
+  /* === Table Action Cells & Buttons (Matching Customer Page) === */
+  .action-cell {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .action-btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .view-btn {
+    background-color: var(--brand-burgundy-dark);
+    color: var(--brand-gold-bright);
+    border: 1px solid var(--brand-gold-dark);
+  }
+
+  .view-btn:hover {
+    background-color: var(--brand-burgundy);
+    color: #FFFFFF;
+  }
+
+  .edit-btn {
+    background-color: var(--brand-gold);
+    color: var(--brand-burgundy-dark);
+    border: 1px solid var(--brand-gold-dark);
+  }
+
+  .edit-btn:hover {
+    background-color: var(--brand-gold-dark);
+    color: #FFFFFF;
+  }
+
+  .update-btn {
+    background-color: #2D6A4F;
+    color: white;
+    border: none;
+  }
+
+  .update-btn:hover {
+    background-color: #1B4332;
+  }
+
+  .cancel-btn {
+    background-color: #8C7A6B;
+    color: white;
+    border: none;
+  }
+
+  .cancel-btn:hover {
+    background-color: #6B5B52;
+  }
+
+  .delete-btn {
+    background-color: var(--brand-burgundy-light);
+    color: white;
+    border: none;
+  }
+
+  .delete-btn:hover {
+    background-color: var(--brand-burgundy-dark);
+  }
+
+  /* === Tables === */
+  table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin-top: 15px; 
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(74, 8, 14, 0.04);
+  }
+
+  th, td {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    color: var(--text-dark);
+  }
+
+  th { 
+    background: var(--brand-burgundy-dark); 
+    color: var(--brand-gold-bright);
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--brand-gold);
+    position: sticky; 
+    top: 0; 
+    z-index: 2; 
+  }
+
+  tbody tr:nth-child(even) { 
+    background: #FDF9F3; 
+  }
+
+  tbody tr:hover {
+    background: #FAF2E6;
+  }
+
+  /* === Modal Overlay === */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(44, 24, 16, 0.5);
+    backdrop-filter: blur(2px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+
+  .modal {
+    background: #FFFFFF;
+    border-radius: 10px;
+    border-top: 5px solid var(--brand-burgundy);
+    width: 90vw;        /* take 90% of viewport width */
+    max-width: none;    /* remove any smaller cap */
+    max-height: 90vh;
+    overflow: auto;
+    padding: 24px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  }
+
+  .modal-header { 
+    margin-bottom: 18px; 
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .modal-header h2 {
+    font-family: 'Montserrat', sans-serif;
+    color: var(--brand-burgundy-dark);
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .modal-footer { 
+    text-align: right; 
+    margin-top: 20px; 
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+  }
+
+  /* === Inline Row Controls === */
+  .add-row { 
+    color: var(--brand-burgundy); 
+    cursor: pointer; 
+    font-weight: 600; 
+    transition: color 0.2s ease;
+  }
+
+  .add-row:hover {
+    color: var(--brand-burgundy-light);
+  }
+
+  .remove-row { 
+    color: var(--brand-burgundy-light); 
+    cursor: pointer; 
+    font-weight: 700; 
+    font-size: 1.1rem;
+    transition: color 0.2s ease;
+  }
+
+  .remove-row:hover {
+    color: var(--brand-burgundy-dark);
+  }
+  
+  /* === Processing Overlay === */
+  #soProcessingOverlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(250, 246, 238, 0.85);
+    display: none; align-items: center; justify-content: center;
+    z-index: 10000;
+    font-size: 1.2rem; 
+    font-weight: 600;
+    font-family: 'Montserrat', sans-serif;
+    color: var(--brand-burgundy);
+  }
+
+  /* Ensure select2 menus float above modal-overlay (z-index:9999) */
+  .select2-container--open .select2-dropdown {
+    z-index: 10000 !important;
+  }
+
+  /* Auto-fit columns and prevent wrapping in both tables */
+  #soNewLines,
+  #soDetailsTable {
+    table-layout: auto;    /* content defines width */
+    white-space: nowrap;    /* keep each cell on one line */
+  }
+</style>
 </head>
 <body>
-<div class="container">
-  <div class="flex-space" style="margin-bottom:20px">
-    <div><h1>Sales Orders</h1><div style="color:#555">Customer commitments and inventory allocation</div></div>
-    <button id="soBtnNewSO"><i class="fa fa-plus"></i> New SO</button>
+  <div class="container">
+    <!-- Header -->
+    <div id="soHeader" class="flex-space">
+      <div>
+        <h1>Sales Orders</h1>
+        <h2>Add and manage your SOs</h2>
+      </div>
+      <button id="soBtnNewSO"><i class="fa fa-plus"></i> New SO</button>
+    </div>
+
+    <!-- Navigation & Search -->
+    <div class="flex-space">
+      <div></div>
+      <div class="flex">
+        <select id="soSearchCriteria">
+          <option>All</option>
+          <option>SO ID</option>
+          <option>Customer Name</option>
+          <option>Invoice Num</option>
+          <option>Receipt Status</option>
+          <option>Shipping Status</option>
+        </select>
+        <input type="text" id="soSearchInput" placeholder="Search...">
+        <button id="soBtnSearch">Search</button>
+        <button class="btn-clear" id="soBtnClear">Clear</button>
+      </div>
+    </div>
+
+    <!-- SO List Table -->
+    <table id="solist">
+      <thead>
+        <tr>
+          <th>SO Date</th><th>SO ID</th><th>Customer ID</th><th>Customer Name</th>
+          <th>Invoice Num</th><th>State</th><th>City</th><th>Total SO Amount</th>
+          <th>Total Received</th><th>SO Balance</th><th>Receipt Status</th>
+          <th>Shipping Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
-  <div class="flex-space"><div></div><div class="flex">
-    <select id="soSearchCriteria"><option>All</option><option>SO ID</option><option>Customer Name</option><option>Invoice Num</option><option>SO Status</option></select>
-    <input id="soSearchInput" placeholder="Search..."><button id="soBtnSearch">Search</button><button class="btn-clear" id="soBtnClear">Clear</button>
-  </div></div>
-  <table id="solist"><thead><tr><th>SO Date</th><th>SO ID</th><th>Customer ID</th><th>Customer Name</th><th>Invoice Num</th><th>State</th><th>City</th><th>Total SO Amount</th><th>SO Status</th><th>Actions</th></tr></thead><tbody></tbody></table>
-</div>
-<div id="processing" class="processing"><i class="fa fa-spinner fa-pulse"></i>&nbsp; Processing...</div>
-<div id="soModalOverlay" class="modal-overlay"><div class="modal"><div><h2 id="soModalTitle"></h2></div><div id="soModalBody"></div><div id="soModalFooter" class="modal-footer"></div></div></div>
+
+  <!-- Processing Overlay -->
+  <div id="soProcessingOverlay"><i class="fa fa-spinner fa-pulse"></i> Processing...</div>
+
+  <!-- New SO / View Details Modal -->
+  <div id="soModalOverlay" class="modal-overlay">
+    <div class="modal" id="soModal">
+      <div class="modal-header">
+        <h2 id="soModalTitle">Modal Title</h2>
+      </div>
+      <div class="modal-body" id="soModalBody">
+        <!-- Content injected by JS -->
+      </div>
+      <div class="modal-footer" id="soModalFooter">
+        <!-- Buttons injected by JS -->
+      </div>
+    </div>
+  </div>
+
+
 <script>
-let soAllData=[],soCustomers=[],soInventory=[],currentDocument=null,currentMode='new';
-function esc(v){if(v===null||v===undefined)return '';return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
-function showProcessing(v){document.getElementById('processing').style.display=v?'flex':'none'}
-function showModal(title,body,footer){document.getElementById('soModalTitle').textContent=title;document.getElementById('soModalBody').innerHTML=body;document.getElementById('soModalFooter').innerHTML=footer;document.getElementById('soModalOverlay').style.display='flex'}
-function closeModal(){document.getElementById('soModalOverlay').style.display='none'}
-function formatDate(v){if(!v)return '';const d=new Date(v);return isNaN(d)?String(v):d.toLocaleDateString()}
-function loadSOList(){showProcessing(true);google.script.run.withSuccessHandler(rows=>{showProcessing(false);renderSOList(rows||[])}).withFailureHandler(e=>{showProcessing(false);alert('Failed to load Sales Orders:\n\n'+(e.message||e))}).soGetAllSO()}
-function renderSOList(rows){soAllData=rows||[];const tb=document.querySelector('#solist tbody');tb.innerHTML='';soAllData.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(formatDate(r['SO Date']))}</td><td>${esc(r['SO ID'])}</td><td>${esc(r['Customer ID'])}</td><td>${esc(r['Customer Name'])}</td><td>${esc(r['Invoice Num'])}</td><td>${esc(r['State'])}</td><td>${esc(r['City'])}</td><td>${(Number(r['Total SO Amount'])||0).toFixed(2)}</td><td class="status">${esc(r['SO Status']||'Open')}</td><td><button onclick="editSO('${esc(r['SO ID'])}')">Edit</button><button onclick="deleteSO('${esc(r['SO ID'])}')">Delete</button></td>`;tb.appendChild(tr)})}
-function applySearch(){const crit=document.getElementById('soSearchCriteria').value,val=document.getElementById('soSearchInput').value.toLowerCase().trim();if(!val){renderSOList(soAllData);return}renderSOList(soAllData.filter(r=>crit==='All'?Object.values(r).some(x=>String(x??'').toLowerCase().includes(val)):String(r[crit]??'').toLowerCase().includes(val)))}
-function newForm(){return `<div class="grid"><div class="field"><label>SO ID</label><input id="soID" class="readonly" readonly></div><div class="field"><label>SO Date</label><input id="soDate" type="date"></div><div class="field"><label>Customer</label><select id="soCustomer" style="width:100%"></select></div><div class="field"><label>Customer ID</label><input id="soCustomerID" class="readonly" readonly></div><div class="field"><label>State</label><input id="soState" class="readonly" readonly></div><div class="field"><label>City</label><input id="soCity" class="readonly" readonly></div><div class="field"><label>Invoice Num</label><input id="soInvoice"></div><div class="field"><label>SO Status</label><input id="soStatus" class="readonly" readonly></div><div class="field"><label>Total SO Amount</label><input id="soTotal" class="readonly" readonly></div></div><hr><div class="flex-space"><h3>Line Items</h3><button onclick="addLine()">+ Add Row</button></div><table id="soLines"><thead><tr><th>Detail ID</th><th>Item</th><th>Item ID</th><th>QTY Ordered</th><th>QTY Delivered</th><th>QTY Balance</th><th>Unit Price</th><th>Price Excl Tax</th><th>Tax Rate</th><th>Total Tax</th><th>Price Incl Tax</th><th>Shipping Fees</th><th>Total Sales Price</th><th></th></tr></thead><tbody></tbody></table>`}
-function initCustomerSelect(selected){const s=$('#soCustomer');s.empty().append(new Option('', '', false, false));soCustomers.filter(c=>c['Customer Name']).forEach(c=>s.append(new Option(c['Customer Name'],c['Customer ID'],false,false)));if(s.hasClass('select2-hidden-accessible'))s.select2('destroy');s.select2({placeholder:'Select Customer',width:'100%'}).off('change').on('change',function(){const c=soCustomers.find(x=>String(x['Customer ID'])===String(this.value));if(c){$('#soCustomerID').val(c['Customer ID']||'');$('#soState').val(c['State']||'');$('#soCity').val(c['City']||'')}});if(selected)s.val(selected['Customer ID']).trigger('change')}
-function openEditor(doc){currentDocument=doc||null;currentMode=doc?'edit':'new';showModal(doc?'Edit Sales Order':'New Sales Order',newForm(),'<button onclick="saveSO()">Save</button><button class="btn-clear" onclick="closeModal()">Close</button>');google.script.run.withSuccessHandler(c=>{soCustomers=c||[];initCustomerSelect(doc?doc.header:null);if(!doc){$('#soDate').val(new Date().toISOString().slice(0,10));$('#soStatus').val('Open');google.script.run.withSuccessHandler(id=>$('#soID').val(id)).withFailureHandler(e=>alert('Unable to generate SO ID: '+(e.message||e))).Document_generateID('SalesOrder')}else loadEditor(doc)}).withFailureHandler(e=>alert('Failed to load customers: '+(e.message||e))).soGetCustomers()}
-function loadEditor(doc){const h=doc.header;$('#soID').val(h['SO ID']||'');$('#soDate').val(h['SO Date']?String(h['SO Date']).slice(0,10):'');$('#soInvoice').val(h['Invoice Num']||'');$('#soCustomer').val(h['Customer ID']).trigger('change');$('#soStatus').val(h['SO Status']||'Open');(doc.details?.SalesDetails||[]).forEach(addLine);recalcTotal()}
-function addLine(existing){const tb=document.querySelector('#soLines tbody'),tr=document.createElement('tr'),detailID=existing?existing['Detail ID']:nextDetailID();tr.innerHTML=`<td class="detailID">${esc(detailID)}</td><td><select class="item" style="width:180px"></select></td><td class="itemID"></td><td><input class="qty" type="number" min="0" step="1" value="${existing?Number(existing['QTY Ordered'])||0:1}"></td><td><input class="delivered readonly" type="number" readonly value="${existing?Number(existing['QTY Delivered'])||0:0}"></td><td class="balance">0</td><td><input class="price" type="number" step="0.01" value="${existing?Number(existing['Unit Price'])||0:0}"></td><td class="excl">0.00</td><td><input class="taxRate" type="number" step="0.01" value="${existing?Number(existing['Tax Rate'])||0:0}"></td><td class="tax">0.00</td><td class="incl">0.00</td><td><input class="ship" type="number" step="0.01" value="${existing?Number(existing['Shipping Fees'])||0:0}"></td><td class="lineTotal">0.00</td><td><span class="danger" onclick="removeLine(this)">×</span></td>`;tb.appendChild(tr);const s=$(tr.querySelector('.item'));soInventory.forEach(i=>s.append(new Option(i['Item Name'],i['Item ID'],false,false)));s.select2({placeholder:'Item Name',width:'180px'}).on('change',function(){const item=soInventory.find(i=>String(i['Item ID'])===String(this.value));if(item){tr.querySelector('.itemID').textContent=item['Item ID'];recalcLine(tr)}});if(existing)s.val(existing['Item ID']).trigger('change');['.qty','.price','.taxRate','.ship'].forEach(sel=>tr.querySelector(sel).addEventListener('input',()=>recalcLine(tr)));recalcLine(tr)}
-function nextDetailID(){const so=$('#soID').val();let max=0;document.querySelectorAll('#soLines tbody tr .detailID').forEach(e=>{const m=String(e.textContent).match(new RegExp('^'+so+'-(\\d+)$'));if(m)max=Math.max(max,Number(m[1]))});return so+'-'+String(max+1).padStart(2,'0')}
-function removeLine(el){el.closest('tr').remove();recalcTotal()}
-function recalcLine(tr){const q=Number(tr.querySelector('.qty').value)||0,d=Number(tr.querySelector('.delivered').value)||0,p=Number(tr.querySelector('.price').value)||0,t=Number(tr.querySelector('.taxRate').value)||0,s=Number(tr.querySelector('.ship').value)||0,excl=q*p,tax=excl*t/100,incl=excl+tax;tr.querySelector('.balance').textContent=Math.max(0,q-d).toFixed(0);tr.querySelector('.excl').textContent=excl.toFixed(2);tr.querySelector('.tax').textContent=tax.toFixed(2);tr.querySelector('.incl').textContent=incl.toFixed(2);tr.querySelector('.lineTotal').textContent=(incl+s).toFixed(2);recalcTotal()}
-function recalcTotal(){let total=0,ordered=0,delivered=0;document.querySelectorAll('#soLines tbody tr').forEach(tr=>{total+=Number(tr.querySelector('.lineTotal').textContent)||0;ordered+=Number(tr.querySelector('.qty').value)||0;delivered+=Number(tr.querySelector('.delivered').value)||0});$('#soTotal').val(total.toFixed(2));let status='Open';if(ordered>0&&delivered>0&&delivered<ordered)status='Partially Fulfilled';if(ordered>0&&delivered>=ordered)status='Fulfilled';$('#soStatus').val(status);return{total,status}}
-function buildPayload(){const v=recalcTotal(),master={'SO Date':$('#soDate').val(),'SO ID':$('#soID').val(),'Customer ID':$('#soCustomerID').val(),'Customer Name':$('#soCustomer option:selected').text(),'Invoice Num':$('#soInvoice').val(),'State':$('#soState').val(),'City':$('#soCity').val(),'Total SO Amount':v.total,'SO Status':v.status},details=[];document.querySelectorAll('#soLines tbody tr').forEach(tr=>{const item=soInventory.find(i=>String(i['Item ID'])===String(tr.querySelector('.itemID').textContent)),q=Number(tr.querySelector('.qty').value)||0,d=Number(tr.querySelector('.delivered').value)||0,p=Number(tr.querySelector('.price').value)||0,t=Number(tr.querySelector('.taxRate').value)||0,s=Number(tr.querySelector('.ship').value)||0,excl=q*p,tax=excl*t/100,incl=excl+tax;details.push({'SO Date':master['SO Date'],'SO ID':master['SO ID'],'Detail ID':tr.querySelector('.detailID').textContent,'Customer ID':master['Customer ID'],'Customer Name':master['Customer Name'],'State':master['State'],'City':master['City'],'Invoice Num':master['Invoice Num'],'Item ID':item?item['Item ID']:'','Item Type':item?item['Item Type']:'','Item Category':item?item['Item Category']:'','Item Subcategory':item?item['Item Subcategory']:'','Item Name':item?item['Item Name']:'','QTY Ordered':q,'QTY Delivered':d,'QTY Balance':Math.max(0,q-d),'Unit Price':p,'Price Excl Tax':excl,'Tax Rate':t,'Total Tax':tax,'Price Incl Tax':incl,'Shipping Fees':s,'Total Sales Price':incl+s})});return{type:'SalesOrder',master,details:{SalesDetails:details}}}
-function saveSO(){const p=buildPayload();if(!p.master['SO ID'])return alert('Sales Order ID is required.');if(!p.master['Customer ID'])return alert('Please select a customer.');if(!p.details.SalesDetails.length)return alert('At least one detail line is required.');if(p.details.SalesDetails.some(x=>!x['Item ID']))return alert('Every detail line must have an item.');if(p.details.SalesDetails.some(x=>x['QTY Ordered']<=0))return alert('QTY Ordered must be greater than zero.');showProcessing(true);google.script.run.withSuccessHandler(r=>{showProcessing(false);closeModal();loadSOList();let msg=currentMode==='edit'?'Sales Order updated successfully.':'Sales Order saved successfully.';if(r?.inventoryWarnings?.length)msg+='\n\nInventory warning(s):\n'+r.inventoryWarnings.join('\n');alert(msg)}).withFailureHandler(e=>{showProcessing(false);alert('Sales Order save failed:\n\n'+(e.message||e))}).soSaveSalesOrder(p)}
-function editSO(id){showProcessing(true);google.script.run.withSuccessHandler(doc=>{showProcessing(false);if(!doc)return alert('Sales Order not found: '+id);openEditor(doc)}).withFailureHandler(e=>{showProcessing(false);alert('Failed to load Sales Order:\n\n'+(e.message||e))}).Document_get('SalesOrder',id)}
-function deleteSO(id){if(!confirm('Delete Sales Order '+id+'?'))return;showProcessing(true);google.script.run.withSuccessHandler(()=>{showProcessing(false);loadSOList();alert('Sales Order deleted successfully.')}).withFailureHandler(e=>{showProcessing(false);alert('Delete failed:\n\n'+(e.message||e))}).soDeleteSalesOrder(id)}
-document.addEventListener('DOMContentLoaded',()=>{google.script.run.withSuccessHandler(d=>soInventory=d||[]).withFailureHandler(e=>console.error(e)).soGetInventoryItems();loadSOList();document.getElementById('soBtnNewSO').onclick=()=>openEditor(null);document.getElementById('soBtnSearch').onclick=applySearch;document.getElementById('soBtnClear').onclick=()=>{document.getElementById('soSearchInput').value='';document.getElementById('soSearchCriteria').value='All';renderSOList(soAllData)}});
-</script>
-<?!= include('DocumentRenderer'); ?>
-</body>
+    /* === Utility & State === */
+    let soAllData = [];      
+    let soSearchData = [];   
+    let soCustomers = [];
+    let soInventory = [];
+    let deletedDetailIDs = [];
+
+    let currentDocument = null;
+    let currentMode = "new";   // "new" | "edit"
+
+        /* === Security Escape Utility === */
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    
+
+    /* === Initialization === */
+document.addEventListener('DOMContentLoaded', () => {
+
+  console.log("Sales page initialized");
+
+  soRefreshSOList();
+
+  google.script.run
+    .withSuccessHandler(data => { 
+      console.log("Inventory loaded:", data.length);
+      console.log(data);
+      soInventory = data; 
+    })
+    .withFailureHandler(err => {
+      console.error('soGetInventoryItems failed:', err);
+    })
+    .soGetInventoryItems();
+
+
+  const btnNew = document.getElementById('soBtnNewSO');
+
+  if (btnNew) {
+    if (typeof openSalesOrderEditor === "function") {
+      btnNew.onclick = () => openSalesOrderEditor(null);
+    } else {
+      console.error("openSalesOrderEditor is missing");
+    }
+  }
+
+  const btnSearch = document.getElementById('soBtnSearch');
+
+  if (btnSearch) {
+    if (typeof applySearch === "function") {
+      btnSearch.onclick = applySearch;
+    } else {
+      console.error("applySearch is missing");
+    }
+  }
+
+  const btnClear = document.getElementById('soBtnClear');
+
+if (btnClear) {
+  btnClear.onclick = function() {
+    if (typeof clearSearch === "function") {
+      clearSearch();
+    } else {
+      console.error("clearSearch is missing");
+    }
+    soRefreshSOList();
+  };
+}
+
+});
+    /* === Rendering SO List === */
+function soRefreshSOList() {
+
+    const overlay = document.getElementById('soProcessingOverlay');
+
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
+
+    google.script.run
+
+        .withSuccessHandler(rows => {
+
+            try {
+
+                renderSOList(rows);
+
+            } catch (err) {
+
+                console.error("renderSOList failed:", err);
+
+                alert(
+                    "Failed to render Sales Orders:\n\n" +
+                    (err.message || err)
+                );
+
+            } finally {
+
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+
+            }
+
+        })
+
+        .withFailureHandler(err => {
+
+            console.error("Full error:", err);
+            console.error("Message:", err.message);
+            console.error("Stack:", err.stack);
+
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+
+            alert(
+                "Failed to load Sales Orders:\n\n" +
+                (err.message || JSON.stringify(err))
+            );
+
+        })
+
+        .soGetAllSO();
+}
+
+function renderSOList(rows) {
+
+  soAllData = rows || [];
+
+  const tbody = document.querySelector('#solist tbody');
+
+  if (!tbody) {
+    console.error("SO list table body not found.");
+    return;
+  }
+
+  tbody.innerHTML = '';
+
+  soAllData.forEach(r => {
+
+    const totalAmt = parseFloat(r['Total SO Amount']) || 0;
+    const received = parseFloat(r['Total Received']) || 0;
+    const balance = parseFloat(r['SO Balance']) || 0;
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escapeHtml(new Date(r['SO Date']).toLocaleDateString())}</td>
+      <td>${escapeHtml(r['SO ID'])}</td>
+      <td>${escapeHtml(r['Customer ID'])}</td>
+      <td>${escapeHtml(r['Customer Name'])}</td>
+      <td>${escapeHtml(r['Invoice Num'])}</td>
+      <td>${escapeHtml(r['State'])}</td>
+      <td>${escapeHtml(r['City'])}</td>
+      <td>${totalAmt.toFixed(2)}</td>
+      <td>${received.toFixed(2)}</td>
+      <td>${balance.toFixed(2)}</td>
+      <td>${escapeHtml(r['Receipt Status'])}</td>
+      <td>${escapeHtml(r['Shipping Status'])}</td>
+      <td>
+  <button class="btn"
+      onclick= "soEditSalesOrder('${escapeHtml(r['SO ID'])}')">
+      Edit
+  </button> <button class="btn"
+      onclick="soDeleteSalesOrder('${escapeHtml(r['SO ID'])}')">
+      Delete
+  </button>
+</td>
+    `;
+
+    tbody.appendChild(tr);
+
+  });
+
+
+  const overlay = document.getElementById('soProcessingOverlay');
+
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+
+}
+
+function applySearch() {
+  const crit = document.getElementById('soSearchCriteria').value;
+  const val  = document.getElementById('soSearchInput').value.toLowerCase();
+
+  if (!val) {
+    renderSOList(soAllData);
+    return;
+  }
+
+  const filtered = soAllData.filter(r => {
+    if (crit === 'All') {
+      return Object.values(r).some(v => (''+v).toLowerCase().includes(val));
+    }
+    return (''+r[crit]).toLowerCase().includes(val);
+  });
+
+  if (!filtered.length) {
+    alert('No matching data found');
+  }
+  renderSOList(filtered);
+}
+    
+    function clearSearch() {
+      document.getElementById('soSearchInput').value = '';
+      document.getElementById('soSearchCriteria').value = 'All';
+      renderSOList(soAllData);
+    }
+
+
+    /* === Modal Framework === */
+
+function showModal(title, body, footer) {
+  const overlay = document.getElementById("soModalOverlay");
+  const modal = document.getElementById("soModal");
+  document.getElementById("soModalTitle").innerHTML = title;
+  document.getElementById("soModalBody").innerHTML = body;
+  document.getElementById("soModalFooter").innerHTML = footer;
+  overlay.style.display = "flex";
+}
+
+function closeModal() {
+  const overlay = document.getElementById("soModalOverlay");
+  if (overlay) {
+      overlay.style.display = "none";
+  }
+}
+
+function populateCustomerDropdown(customers) {
+
+  console.log('populateCustomerDropdown got:',customers);
+
+  const sel =
+    document.getElementById('soNewCustomer');
+
+  if (!sel) {
+    console.error(
+      '#soNewCustomer not found'
+    );
+    return;
+  }
+
+  sel.innerHTML = '<option></option>';
+
+  (customers || [])
+    .filter(c => c['Customer Name'])
+    .forEach(cust => {
+
+      const opt = document.createElement('option');
+      opt.value = cust['Customer Name'];
+      opt.textContent = cust['Customer Name'];
+      sel.appendChild(opt);
+    });
+
+  if (
+    $('#soNewCustomer').hasClass('select2-hidden-accessible')
+  ) {
+    $('#soNewCustomer').select2('destroy');
+
+  }
+
+  $('#soNewCustomer').select2({
+      placeholder:
+        'Select Customer',
+      width:
+        '100%'
+    })
+    .on(
+      'change',
+      function() {
+
+        const name = this.value;
+        const cust = (customers || []).find(x => x['Customer Name'] === name);
+
+        if (cust) {
+          document.getElementById('soNewCustID').value = cust['Customer ID'] || "";
+          document.getElementById('soNewState').value = cust['State'] || "";
+          document.getElementById('soNewCity').value = cust['City'] || "";
+        }
+
+      }
+    );
+
+}
+
+
+function openSalesOrderEditor(soDocument = null) {
+
+    currentDocument = soDocument;
+    currentMode = soDocument ? "edit" : "new";
+
+    const body = newSOFormBody();
+    const footer = newSOFormFooter();
+
+    showModal(
+        currentMode === "edit"
+            ? "Edit Sales Order"
+            : "New Sales Order",
+        body,
+        footer
+    );
+
+    google.script.run
+        .withSuccessHandler(customers => {
+
+            populateCustomerDropdown(customers);
+
+            if (currentMode === "new") {
+
+                document.getElementById("soNewDate").value = new Date().toISOString().split("T")[0];
+                document.getElementById("soNewReceiptStatus").value = "Not Paid";
+                document.getElementById("soNewShippingStatus").value = "Not Shipped";
+
+                // Generate Sales Order ID
+                google.script.run
+                    .withSuccessHandler(soID => {
+
+                        document.getElementById("soNewSOID").value =
+                            soID;
+
+                    })
+                    .withFailureHandler(err => {
+
+                        console.error(
+                            "Failed to generate Sales Order ID:",
+                            err
+                        );
+
+                        alert(
+                            "Unable to generate Sales Order ID.\n\n" +
+                            (err.message || err)
+                        );
+
+                    })
+                    .Document_generateID("SalesOrder");
+
+            } else {
+
+                loadSalesOrder(soDocument);
+            }
+        })
+        .withFailureHandler(err => {
+
+            console.error(
+                "Failed to load customers:",
+                err
+            );
+
+        })
+        .soGetCustomers();
+}
+
+function newSOFormBody() {
+      return `
+        <div>
+          <h3>Section 1: Master Information</h3>
+          <div class="flex-space">
+            <div style="flex:1; margin-right:10px">
+              <label>SO ID</label><br>
+              <input type="text" id="soNewSOID" readonly>
+             </div>
+            <div style="flex:1; margin-right:10px">
+              <label>Customer Name</label><br>
+              <select id="soNewCustomer" style="width:100%"></select>
+            </div>
+            <div style="flex:1; margin-right:10px">
+              <label>Customer ID</label><br>
+              <input type="text" id="soNewCustID" readonly>
+            </div>
+            <div style="flex:1; margin-right:10px">
+              <label>State</label><br>
+              <input type="text" id="soNewState" readonly>
+            </div>
+            <div style="flex:1; margin-right:10px">
+              <label>City</label><br>
+              <input type="text" id="soNewCity" readonly>
+            </div>
+            <div style="flex:1; margin-right:10px">
+              <label>Invoice Num</label><br>
+              <input type="text" id="soNewInvoice">
+            </div>
+            <div style="flex:1">
+              <label>SO Date</label><br>
+              <input type="date" id="soNewDate">
+            </div>
+           <input type="hidden" id="soNewReceiptStatus" value="Not Paid">
+           <input type="hidden" id="soNewShippingStatus" value="Not Shipped">
+           <input type="hidden" id="soNewTotalAmount" value="0">
+           <input type="hidden" id="soNewBalance" value="0">
+          </div>
+        </div>
+        <hr>
+        <div>
+          <h3>Section 2: Line Items</h3>
+          <button class="add-row btn" onclick="addSOLine()">+ Add Row</button>
+          <table id="soNewLines">
+            <thead>
+              <tr>
+                <th style="display:none;">SO Date</th>
+                <th style="display:none;">SO ID</th>
+                <th>Detail ID</th>
+                <th style="display:none;">Customer ID</th>
+                <th style="display:none;">Customer Name</th>
+                <th style="display:none;">State</th>
+                <th style="display:none;">City</th>
+                <th style="display:none;">Invoice Num</th>
+                <th>Item Name</th><th>Item ID</th><th>Item Type</th><th>Item Category</th>
+                <th>Item Subcategory</th><th>QTY Sold</th><th>Unit Price</th>
+                <th>Price Excl Tax</th><th>Tax Rate</th><th>Total Tax</th>
+                <th>Price Incl Tax</th><th>Shipping Fees</th><th>Total Sales Price</th>
+                <th>Remove</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function newSOFormFooter() {
+      return `
+        <button class="btn" onclick="saveNewSO()">Save</button>
+        <button class="btn-clear" onclick="closeModal()">Close</button>
+      `;
+    }
+
+    // Claude 
+  async function addSOLine(existingRow = null) {
+  const validation = validateSOHeader();
+  if (!validation.valid) {
+    alert(validation.message);
+    return;
+  }
+
+  try {
+    const tbody = document.querySelector('#soNewLines tbody');
+    const rowIdx = tbody.children.length;
+
+    const soDate = document.getElementById('soNewDate').value;
+    const soID   = document.getElementById('soNewSOID').value;
+    const custID = document.getElementById('soNewCustID').value;
+    const custNm = $('#soNewCustomer').val();
+    const state  = document.getElementById('soNewState').value;
+    const city   = document.getElementById('soNewCity').value;
+    const inv    = document.getElementById('soNewInvoice').value;
+
+let detailID;
+
+if (existingRow) {
+
+    // Existing saved detail — preserve its ID.
+    detailID = existingRow["Detail ID"];
+
+} else {
+
+    // New detail — determine the next sequence
+    // from the rows currently displayed on the form.
+
+    const detailIDs = Array.from(
+        tbody.querySelectorAll(".soDetailID")
+    )
+    .map(el => el.textContent.trim())
+    .filter(id => id);
+
+    let maxSequence = 0;
+
+    const prefix = `${soID}-`;
+
+    detailIDs.forEach(id => {
+
+        if (!id.startsWith(prefix)) {
+            return;
+        }
+
+        const sequence = parseInt(
+            id.substring(prefix.length),
+            10
+        );
+
+        if (!isNaN(sequence)) {
+            maxSequence = Math.max(
+                maxSequence,
+                sequence
+            );
+        }
+    });
+
+    // Generate the next Detail ID locally.
+    detailID =
+        `${soID}-${String(maxSequence + 1).padStart(2, "0")}`;
+}
+
+
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-idx', rowIdx);
+    tr.innerHTML = `
+     <td style="display:none">${escapeHtml(soDate)}</td>
+     <td style="display:none">${escapeHtml(soID)}</td>
+      <td class="soDetailID">${escapeHtml(detailID)}</td>
+      <td style="display:none">${escapeHtml(custID)}</td>
+      <td style="display:none">${escapeHtml(custNm)}</td>
+      <td style="display:none">${escapeHtml(state)}</td>
+      <td style="display:none">${escapeHtml(city)}</td>
+      <td style="display:none">${escapeHtml(inv)}</td>
+      <td><select class="soItemName" style="width:150px"></select></td>
+      <td class="soItemID"></td>
+      <td class="soItemType"></td>
+      <td class="soItemCat"></td>
+      <td class="soItemSubcat"></td>
+      <td><input type="number" class="soQty" min="1" value="1"></td>
+      <td><input type="number" class="soUnitPrice" step="0.01" value="0.00"></td>
+      <td class="soPriceExcl">0.00</td>
+      <td><input type="number" class="soTaxRate" step="0.01" value="0.00"></td>
+      <td class="soTotalTax">0.00</td>
+      <td class="soPriceIncl">0.00</td>
+      <td><input type="number" class="soShipFees" step="0.01" value="0.00"></td>
+      <td class="soTotalSales">0.00</td>
+      <td><span class="remove-row" onclick="removeSOLine(this)">×</span></td>
+
+    `;
+    tbody.appendChild(tr);
+
+    // sel must exist, be populated, and have select2 bound BEFORE we set its value
+    const sel = tr.querySelector('.soItemName');
+    soInventory.forEach(item => {
+      const opt = new Option(item['Item Name'], item['Item Name'], false, false);
+      sel.add(opt);
+    });
+
+    $(sel).select2({ placeholder: 'Item Name' })
+      .on('change', function() {
+        const itemName = this.value;
+        const item = soInventory.find(i => i['Item Name'] === itemName);
+        if (item) {
+          tr.querySelector('.soItemID').innerText   = item['Item ID'] || '';
+          tr.querySelector('.soItemType').innerText = item['Item Type'] || '';
+          tr.querySelector('.soItemCat').innerText  = item['Item Category'] || '';
+          tr.querySelector('.soItemSubcat').innerText = item['Item Subcategory'] || '';
+          recalcLine(tr);
+        }
+      });
+
+    ['.soQty', '.soUnitPrice', '.soTaxRate', '.soShipFees'].forEach(cls => {
+      tr.querySelector(cls).addEventListener('input', () => recalcLine(tr));
+    });
+
+    if (existingRow) {
+      $(sel).val(existingRow["Item Name"]).trigger("change"); // now safe, and fires the change handler above
+      tr.querySelector(".soQty").value       = existingRow["QTY Sold"];
+      tr.querySelector(".soUnitPrice").value = existingRow["Unit Price"];
+      tr.querySelector(".soTaxRate").value   = existingRow["Tax Rate"];
+      tr.querySelector(".soShipFees").value  = existingRow["Shipping Fees"];
+      recalcLine(tr);
+    }
+
+  } catch (err) {
+    console.error('Error adding line item:', err);
+    alert("Error: " + (err.message || err));
+  }
+}
+
+function removeSOLine(button) {
+
+    const row = button.closest("tr");
+
+    if (!row) {
+        return;
+    }
+
+    row.remove();
+
+    soCalculateFormTotal();
+}
+
+function recalcLine(tr) {
+
+    const qty = Number(tr.querySelector('.soQty').value) || 0;
+    const unitPrice = Number(tr.querySelector('.soUnitPrice').value) || 0;
+    const taxRate = Number(tr.querySelector('.soTaxRate').value) || 0;
+    const shipping = Number(tr.querySelector('.soShipFees').value) || 0;
+    const priceExcl = qty * unitPrice;
+    const totalTax = priceExcl * taxRate / 100;
+    const priceIncl = priceExcl + totalTax;
+    const totalSales = priceIncl + shipping;
+    tr.querySelector('.soPriceExcl').innerText = priceExcl.toFixed(2);
+    tr.querySelector('.soTotalTax').innerText =  totalTax.toFixed(2);
+    tr.querySelector('.soPriceIncl').innerText = priceIncl.toFixed(2);
+    tr.querySelector('.soTotalSales').innerText = totalSales.toFixed(2);
+
+    // Recalculate Sales Order total
+    soCalculateFormTotal();
+}
+
+
+function soCalculateFormTotal() {
+
+    let total = 0;
+
+    document
+        .querySelectorAll("#soNewLines tbody tr")
+        .forEach(tr => {
+
+            const lineTotal =
+                Number(
+                    tr.querySelector(".soTotalSales")?.innerText
+                ) || 0;
+
+            total += lineTotal;
+        });
+
+    // Update SO Total Amount
+    const totalField =
+        document.getElementById("soNewTotalAmount");
+
+    if (totalField) {
+        totalField.value = total;
+    }
+
+    // --------------------------------------------
+    // Calculate SO Balance
+    // --------------------------------------------
+
+    let totalReceived = 0;
+
+    if (currentMode === "edit" && currentDocument) {
+
+        totalReceived =
+            Number(
+                currentDocument.header?.["Total Received"]
+            ) || 0;
+    }
+
+    const balance =
+        total - totalReceived;
+
+    const balanceField =
+        document.getElementById("soNewBalance");
+
+    if (balanceField) {
+        balanceField.value = balance;
+    }
+
+    //return total;
+
+    return {
+      total,
+      totalReceived,
+      balance
+    };
+}
+
+function validateSOHeader() {
+
+  if (!document.getElementById('soNewSOID').value) {
+    return {
+      valid: false,
+      message: 'Please generate a Sales Order ID.'
+    };
+  }
+
+  if (!$('#soNewCustomer').val()) {
+    return {
+      valid: false,
+      message: 'Please select a Customer.'
+    };
+  }
+
+  if (!document.getElementById('soNewDate').value) {
+    return {
+      valid: false,
+      message: 'Please select the Sales Order Date.'
+    };
+  }
+
+  return { valid: true };
+}
+
+function buildSODTO() {
+
+  const { total, totalReceived, balance } = soCalculateFormTotal();
+
+  // Check if we are editing an existing document
+  const isEdit = typeof currentMode !== 'undefined' && currentMode === "edit" && currentDocument;
+
+  // Rules: If new SO, set defaults. If editing, preserve existing values.
+  const receiptStatus = isEdit ? currentDocument.header?.["Receipt Status"] : "Pending Payment";
+  const shippingStatus = isEdit ? currentDocument.header?.["Shipping Status"] : "Not Shipped";
+
+  const master = {
+    "SO Date": document.getElementById("soNewDate").value,
+    "SO ID": document.getElementById("soNewSOID").value,
+    "Customer ID": document.getElementById("soNewCustID").value,
+    "Customer Name": $("#soNewCustomer").val(),
+    "Invoice Num": document.getElementById("soNewInvoice").value,
+    "State": document.getElementById("soNewState").value,
+    "City": document.getElementById("soNewCity").value,
+    "Total SO Amount": total,
+    "Total Received": totalReceived,
+    "SO Balance": balance,
+    "Receipt Status": receiptStatus,
+    "Shipping Status": shippingStatus
+};
+
+  const details = [];
+
+  document
+    .querySelectorAll("#soNewLines tbody tr")
+    .forEach(tr => {
+
+      details.push({
+
+        "SO Date": tr.cells[0].innerText,
+        "SO ID": tr.cells[1].innerText,
+        "Detail ID": tr.querySelector(".soDetailID").innerText,
+        "Customer ID": tr.cells[3].innerText,
+        "Customer Name": tr.cells[4].innerText,
+        "State": tr.cells[5].innerText,
+        "City": tr.cells[6].innerText,
+        "Invoice Num": tr.cells[7].innerText,
+        "Item Name": tr.querySelector(".soItemName").value,
+        "Item ID": tr.querySelector(".soItemID").innerText,
+        "Item Type": tr.querySelector(".soItemType").innerText,
+        "Item Category": tr.querySelector(".soItemCat").innerText,
+        "Item Subcategory": tr.querySelector(".soItemSubcat").innerText,
+        "QTY Sold": Number(tr.querySelector(".soQty").value),
+        "Unit Price": Number(tr.querySelector(".soUnitPrice").value),
+        "Price Excl Tax": Number(tr.querySelector(".soPriceExcl").innerText),
+        "Tax Rate": Number(tr.querySelector(".soTaxRate").value),
+        "Total Tax": Number(tr.querySelector(".soTotalTax").innerText),
+        "Price Incl Tax": Number(tr.querySelector(".soPriceIncl").innerText),
+        "Shipping Fees": Number(tr.querySelector(".soShipFees").value),
+        "Total Sales Price": Number(tr.querySelector(".soTotalSales").innerText)
+      });
+
+    });
+
+  return {
+  type: "SalesOrder",
+  master,
+  details: {
+    SalesDetails: details
+  }
+};
+
+}
+
+function saveNewSO() {
+
+    const payload = buildSODTO();
+    const successMessage =
+        currentMode === "edit"
+            ? "Sales Order updated successfully."
+            : "Sales Order saved successfully.";
+/*
+    google.script.run
+        .withSuccessHandler(() => {
+            closeModal();
+            soRefreshSOList();
+            alert(successMessage);
+        })
+        .withFailureHandler(err => {
+            console.error(err);
+            alert(err.message);
+        })
+        .soSaveSalesOrder("SalesOrder", payload); */
+
+       google.script.run
+    .withSuccessHandler(() => {
+        closeModal();
+        soRefreshSOList();
+
+        alert(successMessage);
+    })
+    .withFailureHandler(err => {
+        console.error("Sales Order save failed:", err);
+        alert(err && err.message ? err.message : String(err));
+    })
+    .soSaveSalesOrder(payload);
+
+}
+
+function renderSODocument(result) {
+  console.log(result);
+  alert(JSON.stringify(result, null, 2));
+}
+
+function soDeleteSalesOrder(soID) {
+
+  if (!confirm(`Delete Sales Order ${soID}?`)) {
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(() => {
+
+      alert("Sales Order deleted successfully.");
+      soRefreshSOList();
+
+    })
+    .withFailureHandler(err => {
+
+      console.error(err);
+      alert(err.message);
+
+    })
+    .soDeleteSalesOrder(soID);   // <-- Call the Sales API
+
+}
+
+// Chat GPT function
+async function loadSalesOrder(doc) {
+
+    console.log("loadSalesOrder received:", doc);
+
+    if (!doc) {
+        throw new Error("No document returned");
+    }
+
+    if (!doc.header) {
+        console.error("Missing header. Received:", doc);
+        throw new Error("Document header missing");
+    }
+
+    const header = doc.header;
+
+    // =========================
+    // Header
+    // =========================
+
+    document.getElementById("soNewSOID").value = header["SO ID"] || "";
+    document.getElementById("soNewCustID").value = header["Customer ID"] || "";
+    document.getElementById("soNewInvoice").value = header["Invoice Num"] || "";
+    const soDate = header["SO Date"];
+    document.getElementById("soNewDate").value = soDate ? String(soDate).substring(0, 10) : "";
+    document.getElementById("soNewState").value = header["State"] || "";
+    document.getElementById("soNewCity").value = header["City"] || "";
+
+
+    // =========================
+    // Customer
+    // =========================
+
+    $("#soNewCustomer")
+        .val(header["Customer Name"] || "")
+        .trigger("change");
+
+
+    // =========================
+    // Details
+    // =========================
+
+    const detailRows = doc.details?.SalesDetails || [];
+
+    console.log("SalesDetails received:", detailRows);
+
+    for (const row of detailRows) {
+        await addSOLine(row);
+    }
+}
+
+
+function soEditSalesOrder(soID) {
+
+    console.log("soEditSalesOrder received:", soID);
+
+    if (!soID) {
+        alert("No Sales Order ID was provided.");
+        return;
+    }
+
+    google.script.run
+        .withSuccessHandler(doc => {
+
+            console.log("Document_get result:", doc);
+
+            if (!doc) {
+                alert(
+                    "Sales Order could not be loaded.\n\n" +
+                    "No document was returned for: " + soID
+                );
+                return;
+            }
+
+            if (!doc.header) {
+                console.error("Invalid document returned:", doc);
+
+                alert(
+                    "Sales Order could not be loaded.\n\n" +
+                    "Document header is missing."
+                );
+                return;
+            }
+
+            // Store the document being edited.
+            currentDocument = doc;
+
+            // Open the editor with the retrieved document.
+            openSalesOrderEditor(doc);
+        })
+        .withFailureHandler(err => {
+
+            console.error(
+                "Document_get failed for Sales Order:",
+                soID,
+                err
+            );
+
+            alert(
+                "Failed to load Sales Order.\n\n" +
+                (err && err.message
+                    ? err.message
+                    : String(err))
+            );
+        })
+        .Document_get("SalesOrder", soID);
+}
+
+
+  </script>
+
+ <?!= include('DocumentRenderer'); ?> 
+
+  </body>
+
+
 </html>
