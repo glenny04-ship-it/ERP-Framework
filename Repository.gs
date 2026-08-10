@@ -120,34 +120,17 @@ headers.forEach((h, i) => {
   });
 
   // ----------------------------------------------------------
-  // Determine insert row based on last populated PK
+  // Determine insert row
   // ----------------------------------------------------------
+  // Uses the sheet's actual last row (data in any column), not
+  // just the last populated PK. Scanning only the PK column is
+  // fragile: a row with data but a blank/cleared PK (e.g. from
+  // a manual edit) would be silently overwritten by the next
+  // insert, since the old logic would treat the row above it
+  // as "last populated" and insert right after that instead.
 
   const lastRow = sheet.getLastRow();
-
-  let insertRow = config.headerRow + 1;
-
-  if (lastRow > config.headerRow) {
-
-    const pkValues = sheet.getRange(
-      config.headerRow + 1,
-      pkIndex + 1,
-      lastRow - config.headerRow,
-      1
-    ).getValues();
-
-    for (let i = pkValues.length - 1; i >= 0; i--) {
-
-      if (String(pkValues[i][0] ?? "").trim() !== "") {
-
-        insertRow = config.headerRow + 2 + i;
-        break;
-
-      }
-
-    }
-
-  }
+  const insertRow = Math.max(lastRow, config.headerRow) + 1;
 
   // ----------------------------------------------------------
   // Convert records
@@ -306,37 +289,23 @@ function Repository_update(tableName, record) {
 
 function Repository_delete(tableName, fieldName, value) {
 
-  const table = Registry.Tables[tableName];
-
-  if (!table) {
-    throw new Error("Unknown table: " + tableName);
-  }
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(table.sheet);
-
-  if (!sheet) {
-    throw new Error("Sheet not found: " + table.sheet);
-  }
+  const table = Repository_getConfig_(tableName);
+  const sheet = Repository_getSheet_(tableName);
 
   const lastRow = sheet.getLastRow();
-  const lastCol = sheet.getLastColumn();
 
-  const headers = sheet
-    .getRange(
-      table.headerRow,
-      1,
-      1,
-      lastCol
-    )
-    .getValues()[0];
+  if (lastRow <= table.headerRow) {
+    return 0;
+  }
+
+  const headers = Repository_getHeaders_(sheet, table);
 
   const data = sheet
     .getRange(
       table.headerRow + 1,
       1,
       lastRow - table.headerRow,
-      lastCol
+      headers.length
     )
     .getValues();
 
