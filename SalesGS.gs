@@ -142,6 +142,20 @@ function soAdjustAggregate_(
   const currentValue = Number(record[aggregateField]) || 0;
   const newValue = currentValue + numericDelta;
 
+  // TEMPORARY DIAGNOSTIC LOGGING
+  console.log(
+    JSON.stringify({
+      diagnostic: "CUSTOMER_AGGREGATE_UPDATE",
+      table: tableName,
+      primaryKeyField: primaryKeyField,
+      primaryKeyValue: primaryKeyValue,
+      field: aggregateField,
+      oldValue: currentValue,
+      delta: numericDelta,
+      newValue: newValue
+    })
+  );
+
   Repository_update(
     tableName,
     {
