@@ -932,9 +932,11 @@ function buildSODTO() {
     });
 
   return {
-    type: "SalesOrder",
-    master,
-    details
+  type: "SalesOrder",
+  master,
+  details: {
+    SalesDetails: details
+  }
 };
 
 }
@@ -942,35 +944,36 @@ function buildSODTO() {
 function saveNewSO() {
 
     const payload = buildSODTO();
+    const successMessage =
+        currentMode === "edit"
+            ? "Sales Order updated successfully."
+            : "Sales Order saved successfully.";
+/*
+    google.script.run
+        .withSuccessHandler(() => {
+            closeModal();
+            soRefreshSOList();
+            alert(successMessage);
+        })
+        .withFailureHandler(err => {
+            console.error(err);
+            alert(err.message);
+        })
+        .soSaveSalesOrder("SalesOrder", payload); */
 
-    if (currentMode === "edit") {
+       google.script.run
+    .withSuccessHandler(() => {
+        closeModal();
+        soRefreshSOList();
 
-        google.script.run
-            .withSuccessHandler(() => {
-                closeModal();
-                soRefreshSOList();
-                alert("Sales Order updated successfully.");
-            })
-            .withFailureHandler(err => {
-                console.error(err);
-                alert(err.message);
-            })
-            .Document_update("SalesOrder", payload);
+        alert(successMessage);
+    })
+    .withFailureHandler(err => {
+        console.error("Sales Order save failed:", err);
+        alert(err && err.message ? err.message : String(err));
+    })
+    .soSaveSalesOrder(payload);
 
-    } else {
-
-        google.script.run
-            .withSuccessHandler(() => {
-                closeModal();
-                soRefreshSOList();
-                alert("Sales Order saved successfully.");
-            })
-            .withFailureHandler(err => {
-                console.error(err);
-                alert(err.message);
-            })
-            .Document_create("SalesOrder", payload);
-    }
 }
 
 function renderSODocument(result) {
