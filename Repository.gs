@@ -56,6 +56,49 @@ headers.forEach((h, i) => {
 
 
 /**
+ * Writes row data to the sheet while never touching columns listed
+ * in protectedFields (e.g. formula-driven columns like "QTY Balance").
+ *
+ * setValues() always pastes a literal into every cell in the range
+ * it's given, so the only safe way to preserve a formula is to never
+ * include that column in the written range at all. This groups the
+ * headers into contiguous non-protected segments and writes each
+ * segment with its own setValues() call, leaving protected columns
+ * completely untouched (including any pre-filled formula in a row
+ * being inserted for the first time).
+ *
+ * @param {Sheet} sheet
+ * @param {number} startRow 1-indexed sheet row of the first row being written
+ * @param {string[]} headers
+ * @param {Array[]} rows Array of row-arrays (already ordered per headers)
+ * @param {string[]} protectedFields Header names to never write
+ */
+function Repository_writeRows_(sheet, startRow, headers, rows, protectedFields) {
+
+  const protectedSet = new Set(protectedFields || []);
+
+  let segStart = null;
+
+  for (let i = 0; i <= headers.length; i++) {
+
+    const isProtected = i < headers.length && protectedSet.has(headers[i]);
+
+    if (!isProtected && i < headers.length) {
+      if (segStart === null) segStart = i;
+      continue;
+    }
+
+    if (segStart !== null) {
+      const segLen = i - segStart;
+      const segValues = rows.map(row => row.slice(segStart, i));
+      sheet.getRange(startRow, segStart + 1, rows.length, segLen)
+        .setValues(segValues);
+      segStart = null;
+    }
+  }
+}
+
+/**
  * Inserts one or more records.
  *
  * @param {string} tableName
@@ -144,12 +187,13 @@ headers.forEach((h, i) => {
   // Insert
   // ----------------------------------------------------------
 
-  sheet.getRange(
+  Repository_writeRows_(
+    sheet,
     insertRow,
-    1,
-    rows.length,
-    headers.length
-  ).setValues(rows);
+    headers,
+    rows,
+    config.protectedFields
+  );
 
   return {
     success: true,
@@ -268,15 +312,16 @@ function Repository_update(tableName, record) {
   );
 
   // ----------------------------------------------------------
-  // Persist
+  // Persist (protected/formula columns are never written)
   // ----------------------------------------------------------
 
-  sheet.getRange(
+  Repository_writeRows_(
+    sheet,
     config.headerRow + 1 + target,
-    1,
-    1,
-    headers.length
-  ).setValues([row]);
+    headers,
+    [row],
+    config.protectedFields
+  );
 
   return {
     success: true,
