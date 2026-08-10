@@ -11,23 +11,6 @@
 
 const DATA_REPAIR_DEFAULT_BATCH_SIZE = 250;
 
-function ERP_RecomputeSalesDetailsBatch(startIndex, batchSize) {
-  startIndex = _repairNormalizeStartIndex_(startIndex);
-  batchSize = _repairNormalizeBatchSize_(batchSize);
-  const lock = _repairAcquireLock_();
-  try {
-    const details = Repository_getRows("SalesDetails");
-    const endIndex = Math.min(startIndex + batchSize, details.length);
-    const batch = details.slice(startIndex, endIndex);
-    const updated = batch.map(row => {
-      row["QTY Balance"] = (Number(row["QTY Ordered"]) || 0) - (Number(row["QTY Delivered"]) || 0);
-      return row;
-    });
-    _repairWriteRowsByPrimaryKey_("SalesDetails", updated);
-    return _repairBatchResult_("SalesDetails", startIndex, batchSize, details.length, updated.length);
-  } finally { lock.releaseLock(); }
-}
-
 function ERP_RecomputeSalesOrdersBatch(startIndex, batchSize) {
   startIndex = _repairNormalizeStartIndex_(startIndex);
   batchSize = _repairNormalizeBatchSize_(batchSize);
@@ -84,7 +67,6 @@ function ERP_RecomputeInventoryBatch(startIndex, batchSize) {
       const allocated = allocationByItem[itemID] || 0;
       row["QTY Allocated"] = allocated;
       row["QTY Delivered"] = deliveredByItem[itemID] || 0;
-      row["QTY Available"] = onHand - allocated;
       return row;
     });
     _repairWriteRowsByPrimaryKey_("Inventory", updated);
@@ -128,7 +110,6 @@ function ERP_RecomputeCustomersBatch(startIndex, batchSize) {
       const totalSales = Number(row["Total Sales"]) || 0;
       row["Total Orders"] = totalOrders;
       row["Total Receipts"] = totalReceipts;
-      row["Balance Receivable"] = totalSales - totalReceipts;
       return row;
     });
     _repairWriteRowsByPrimaryKey_("Customers", updated);
@@ -137,21 +118,71 @@ function ERP_RecomputeCustomersBatch(startIndex, batchSize) {
 }
 
 function ERP_RecomputePhase1(batchSize) {
+
   batchSize = _repairNormalizeBatchSize_(batchSize);
-  const results = { SalesDetails: [], SalesOrders: [], Inventory: [], Customers: [] };
-  let result = ERP_RecomputeSalesDetailsBatch(0, batchSize);
-  results.SalesDetails.push(result);
-  if (!result.complete) return _repairIncompletePhase1Result_("SalesDetails", result, results);
-  result = ERP_RecomputeSalesOrdersBatch(0, batchSize);
+
+  const results = {
+    SalesOrders: [],
+    Inventory: [],
+    Customers: []
+  };
+
+  // --------------------------------------------------
+  // 1. Recompute Sales Orders
+  // --------------------------------------------------
+
+  let result =
+    ERP_RecomputeSalesOrdersBatch(0, batchSize);
+
   results.SalesOrders.push(result);
-  if (!result.complete) return _repairIncompletePhase1Result_("SalesOrders", result, results);
-  result = ERP_RecomputeInventoryBatch(0, batchSize);
+
+  if (!result.complete) {
+    return repairIncompletePhase1Result_(
+      "SalesOrders",
+      result,
+      results
+    );
+  }
+
+  // --------------------------------------------------
+  // 2. Recompute Inventory
+  // --------------------------------------------------
+
+  result =
+    ERP_RecomputeInventoryBatch(0, batchSize);
+
   results.Inventory.push(result);
-  if (!result.complete) return _repairIncompletePhase1Result_("Inventory", result, results);
-  result = ERP_RecomputeCustomersBatch(0, batchSize);
+
+  if (!result.complete) {
+    return repairIncompletePhase1Result_(
+      "Inventory",
+      result,
+      results
+    );
+  }
+
+  // --------------------------------------------------
+  // 3. Recompute Customers
+  // --------------------------------------------------
+
+  result =
+    ERP_RecomputeCustomersBatch(0, batchSize);
+
   results.Customers.push(result);
-  if (!result.complete) return _repairIncompletePhase1Result_("Customers", result, results);
-  return { success: true, complete: true, results: results };
+
+  if (!result.complete) {
+    return repairIncompletePhase1Result_(
+      "Customers",
+      result,
+      results
+    );
+  }
+
+  return {
+    success: true,
+    complete: true,
+    results: results
+  };
 }
 
 function _repairIncompletePhase1Result_(tableName, result, results) {
@@ -197,42 +228,125 @@ function _repairReadTableRowsWithoutPK_(tableName) {
 }
 
 function _repairWriteRowsByPrimaryKey_(tableName, rows) {
+
   if (!rows || rows.length === 0) return;
+
   const config = Repository_getConfig_(tableName);
   const sheet = Repository_getSheet_(tableName);
   const headers = Repository_getHeaders_(sheet, config);
   const pk = config.primaryKey;
+
   const pkIndex = headers.indexOf(pk);
-  if (pkIndex === -1) throw new Error('ERP data repair: Primary key "' + pk + '" not found in ' + tableName + '.');
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= config.headerRow) return;
-  const values = sheet.getRange(config.headerRow + 1, 1, lastRow - config.headerRow, headers.length).getValues();
-  const rowIndexByPK = {};
-  values.forEach((row, index) => {
-    const key = String(row[pkIndex] ?? "").trim();
-    if (key !== "") rowIndexByPK[key] = index;
-  });
-  const targetIndexes = [];
-  const targetRows = {};
-  rows.forEach(record => {
-    const key = String(record[pk] ?? "").trim();
-    if (!key) throw new Error('ERP data repair: ' + tableName + ' contains a blank primary key.');
-    const targetIndex = rowIndexByPK[key];
-    if (targetIndex === undefined) throw new Error('ERP data repair: ' + tableName + ' record not found (' + pk + ': ' + key + ').');
-    targetIndexes.push(targetIndex);
-    targetRows[targetIndex] = record;
-  });
-  const firstIndex = Math.min.apply(null, targetIndexes);
-  const lastIndex = Math.max.apply(null, targetIndexes);
-  const output = values.slice(firstIndex, lastIndex + 1);
-  Object.keys(targetRows).forEach(indexKey => {
-    const index = Number(indexKey);
-    const record = targetRows[indexKey];
-    output[index - firstIndex] = headers.map((header, columnIndex) =>
-      Object.prototype.hasOwnProperty.call(record, header) ? record[header] : values[index][columnIndex]
+
+  if (pkIndex === -1) {
+    throw new Error(
+      'ERP data repair: Primary key "' +
+      pk +
+      '" not found in ' +
+      tableName +
+      '.'
     );
+  }
+
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= config.headerRow) return;
+
+  const values =
+    sheet
+      .getRange(
+        config.headerRow + 1,
+        1,
+        lastRow - config.headerRow,
+        headers.length
+      )
+      .getValues();
+
+  //--------------------------------------------------
+  // Locate repository rows by primary key
+  //--------------------------------------------------
+
+  const rowIndexByPK = {};
+
+  values.forEach((row, index) => {
+
+    const key =
+      String(row[pkIndex] ?? "").trim();
+
+    if (key !== "") {
+      rowIndexByPK[key] = index;
+    }
+
   });
-  sheet.getRange(config.headerRow + 1 + firstIndex, 1, output.length, headers.length).setValues(output);
+
+  //--------------------------------------------------
+  // Apply only explicitly supplied fields
+  //--------------------------------------------------
+
+  rows.forEach(record => {
+
+    if (!record || typeof record !== "object") {
+      throw new Error(
+        "ERP data repair: Invalid repair record."
+      );
+    }
+
+    const key =
+      String(record[pk] ?? "").trim();
+
+    if (!key) {
+      throw new Error(
+        'ERP data repair: ' +
+        tableName +
+        ' contains a blank primary key.'
+      );
+    }
+
+    const targetIndex =
+      rowIndexByPK[key];
+
+    if (targetIndex === undefined) {
+      throw new Error(
+        'ERP data repair: ' +
+        tableName +
+        ' record not found (' +
+        pk +
+        ': ' +
+        key +
+        ').'
+      );
+    }
+
+    //------------------------------------------------
+    // Only fields explicitly included in the record
+    // are written.
+    //------------------------------------------------
+
+    Object.keys(record).forEach(field => {
+
+      const columnIndex =
+        headers.indexOf(field);
+
+      if (columnIndex === -1) {
+        throw new Error(
+          'ERP data repair: Field "' +
+          field +
+          '" not found in table "' +
+          tableName +
+          '".'
+        );
+      }
+
+      sheet
+        .getRange(
+          config.headerRow + 1 + targetIndex,
+          columnIndex + 1
+        )
+        .setValue(record[field]);
+
+    });
+
+  });
 }
 
 function _repairBatchResult_(tableName, startIndex, batchSize, total, processed) {
