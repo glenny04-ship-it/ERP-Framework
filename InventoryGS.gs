@@ -28,7 +28,6 @@ const INVENTORY_ALLOW_OVER_ALLOCATION_PROPERTY =
 
 const INVENTORY_DEFAULT_ALLOW_OVER_ALLOCATION = true;
 
-
 function Inventory_getAllowOverAllocation() {
   const value = PropertiesService.getScriptProperties()
     .getProperty(INVENTORY_ALLOW_OVER_ALLOCATION_PROPERTY);
@@ -39,7 +38,6 @@ function Inventory_getAllowOverAllocation() {
 
   return String(value).toLowerCase() === "true";
 }
-
 
 function Inventory_setAllowOverAllocation(enabled) {
   const value =
@@ -58,7 +56,6 @@ function Inventory_setAllowOverAllocation(enabled) {
   };
 }
 
-
 function Inventory_getPolicy() {
   return {
     allowOverAllocation:
@@ -66,13 +63,11 @@ function Inventory_getPolicy() {
   };
 }
 
-
 function Inventory_getAvailable_(row) {
   const onHand = Number(row["QTY On-Hand"]) || 0;
   const allocated = Number(row["QTY Allocated"]) || 0;
   return onHand - allocated;
 }
-
 
 /**
  * Validate an item-level allocation delta map without mutating Inventory.
@@ -80,34 +75,22 @@ function Inventory_getAvailable_(row) {
  * Negative delta = release allocation.
  */
 function Inventory_validateSOAllocationDelta(deltaMap) {
-
-  if (
-    !deltaMap ||
-    typeof deltaMap !== "object" ||
-    Array.isArray(deltaMap)
-  ) {
+  if (!deltaMap || typeof deltaMap !== "object" || Array.isArray(deltaMap)) {
     throw new Error(
       "Inventory_validateSOAllocationDelta: allocation delta map is required."
     );
   }
 
-  const allowOverAllocation =
-    Inventory_getAllowOverAllocation();
-
+  const allowOverAllocation = Inventory_getAllowOverAllocation();
   const warnings = [];
   const projected = [];
 
   Object.keys(deltaMap).forEach(itemID => {
-
     const delta = Number(deltaMap[itemID]) || 0;
-
     if (delta === 0) return;
 
     const item = Repository_getById("Inventory", itemID);
-
-    if (!item) {
-      throw new Error(`Inventory item not found: ${itemID}`);
-    }
+    if (!item) throw new Error(`Inventory item not found: ${itemID}`);
 
     const onHand = Number(item["QTY On-Hand"]) || 0;
     const currentAllocated = Number(item["QTY Allocated"]) || 0;
@@ -154,51 +137,62 @@ function Inventory_validateSOAllocationDelta(deltaMap) {
   };
 }
 
-
 /**
  * Apply an item-level allocation delta map to Inventory.
+ *
+ * The complete delta map is validated first, then every affected inventory
+ * row is calculated from one consistent snapshot before any writes occur.
+ * This prevents multi-line SO edits/deletes from depending on sequential
+ * read/write state and correctly handles item changes, line additions,
+ * line removals, quantity changes, and whole-SO deletion.
  */
 function Inventory_applySOAllocationDelta(deltaMap) {
+  const validation = Inventory_validateSOAllocationDelta(deltaMap);
+  const itemIDs = Object.keys(deltaMap || {})
+    .filter(itemID => Number(deltaMap[itemID]) !== 0);
 
-  const validation =
-    Inventory_validateSOAllocationDelta(deltaMap);
+  if (!itemIDs.length) {
+    return {
+      success: true,
+      allowOverAllocation: validation.allowOverAllocation,
+      warnings: validation.warnings,
+      updated: []
+    };
+  }
 
-  const updated = [];
+  // Take a single consistent snapshot of all affected Inventory records.
+  const inventoryRows = Repository_getRows("Inventory");
+  const byItemID = {};
 
-  Object.keys(deltaMap).forEach(itemID => {
+  inventoryRows.forEach(row => {
+    const itemID = String(row["Item ID"] || "").trim();
+    if (itemID) byItemID[itemID] = row;
+  });
+
+  const changes = itemIDs.map(itemID => {
+    const item = byItemID[itemID];
+    if (!item) throw new Error(`Inventory item not found: ${itemID}`);
 
     const delta = Number(deltaMap[itemID]) || 0;
+    const currentAllocated = Number(item["QTY Allocated"]) || 0;
+    const newAllocated = currentAllocated + delta;
 
-    if (delta === 0) return;
-
-    const item = Repository_getById("Inventory", itemID);
-
-    if (!item) {
-      throw new Error(`Inventory item not found: ${itemID}`);
-    }
-
-    const currentAllocated =
-      Number(item["QTY Allocated"]) || 0;
-
-    const newAllocated =
-      currentAllocated + delta;
-
-    Repository_update(
-      "Inventory",
-      {
-        "Item ID": itemID,
-        "QTY Allocated": newAllocated
-      }
-    );
-
-    updated.push({
+    return {
       itemID: itemID,
       delta: delta,
       oldAllocated: currentAllocated,
       newAllocated: newAllocated,
       onHand: Number(item["QTY On-Hand"]) || 0,
-      available:
-        (Number(item["QTY On-Hand"]) || 0) - newAllocated
+      available: (Number(item["QTY On-Hand"]) || 0) - newAllocated
+    };
+  });
+
+  // Apply the complete validated change set. Each affected item is updated
+  // from the same snapshot rather than re-reading a changing row per item.
+  changes.forEach(change => {
+    Repository_update("Inventory", {
+      "Item ID": change.itemID,
+      "QTY Allocated": change.newAllocated
     });
   });
 
@@ -206,17 +200,15 @@ function Inventory_applySOAllocationDelta(deltaMap) {
     success: true,
     allowOverAllocation: validation.allowOverAllocation,
     warnings: validation.warnings,
-    updated: updated
+    updated: changes
   };
 }
-
 
 /**
  * Returns Inventory with derived QTY Available.
  * QTY Available is intentionally not persisted to the sheet.
  */
 function Inventory_getCurrentState() {
-
   return Repository_getRows("Inventory")
     .map(row => {
       const result = Object.assign({}, row);
