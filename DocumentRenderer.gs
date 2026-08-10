@@ -30,8 +30,8 @@ function DocumentRenderer_render(doc) {
 
     html += `
       <tr>
-        <th style="width:220px">${field}</th>
-        <td>${doc.header[field] ?? ""}</td>
+        <th style="width:220px">${escapeHtml(field)}</th>
+        <td>${escapeHtml(doc.header[field] ?? "")}</td>
       </tr>
     `;
 
@@ -41,10 +41,6 @@ function DocumentRenderer_render(doc) {
       </tbody>
     </table>
   `;
-
-  modalBody.innerHTML = html;
-
-  document.getElementById("soModalOverlay").style.display = "flex";
 
   Object.entries(view.detailTables).forEach(
 
@@ -67,7 +63,7 @@ function DocumentRenderer_render(doc) {
 
         tableConfig.columns.forEach(col => {
 
-            html += `<th>${col}</th>`;
+            html += `<th>${escapeHtml(col)}</th>`;
 
         });
 
@@ -87,7 +83,7 @@ function DocumentRenderer_render(doc) {
 
                 html += `
                     <td>
-                        ${row[col] ?? ""}
+                        ${escapeHtml(row[col] ?? "")}
                     </td>
                 `;
 
@@ -106,6 +102,10 @@ function DocumentRenderer_render(doc) {
     }
 
 );
+
+  modalBody.innerHTML = html;
+
+  document.getElementById("soModalOverlay").style.display = "flex";
 
 }
 
