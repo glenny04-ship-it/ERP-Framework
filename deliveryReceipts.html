@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <style>
     :root{--brand-burgundy:#78141D;--brand-burgundy-dark:#4A080E;--brand-burgundy-light:#941B26;--brand-gold:#E5C058;--brand-gold-bright:#FBE6A3;--brand-gold-dark:#B58A2B;--brand-cream:#FAF6EE;--text-dark:#2C1810;--text-muted:#6B5B52;--border-color:#E8DCCB}
@@ -19,6 +20,7 @@
     input,select{padding:8px 12px;border-radius:6px;border:1px solid var(--border-color);font-size:.9rem;font-family:'Poppins',sans-serif;color:var(--text-dark);background:#fff;transition:border-color .2s,box-shadow .2s;box-sizing:border-box}input:focus,select:focus{border-color:var(--brand-burgundy);outline:none;box-shadow:0 0 0 2px rgba(120,20,29,.15)}
     .search-row{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:15px}.search-input{width:250px}.search-select{min-width:145px}table{width:100%;border-collapse:collapse;margin-top:15px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(74,8,14,.04)}th,td{padding:12px;border:1px solid var(--border-color);font-size:.9rem;color:var(--text-dark);white-space:nowrap}th{background:var(--brand-burgundy-dark);color:var(--brand-gold-bright);font-family:'Montserrat',sans-serif;font-weight:600;letter-spacing:.5px;border-bottom:2px solid var(--brand-gold);position:sticky;top:0;z-index:2}tbody tr:nth-child(even){background:#FDF9F3}tbody tr:hover{background:#FAF2E6}
     .action-cell{display:flex;gap:6px;align-items:center}.action-btn{padding:6px 12px;border-radius:4px;cursor:pointer;font-size:.85rem;font-weight:500;border:none;text-decoration:none;display:inline-flex;align-items:center;gap:4px}.view-btn{background:var(--brand-burgundy-dark);color:var(--brand-gold-bright);border:1px solid var(--brand-gold-dark)}.view-btn:hover{background:var(--brand-burgundy);color:#fff}.edit-btn{background:var(--brand-gold);color:var(--brand-burgundy-dark);border:1px solid var(--brand-gold-dark)}.edit-btn:hover{background:var(--brand-gold-dark);color:#fff}.delete-btn{background:var(--brand-burgundy-light);color:#fff;border:none}.delete-btn:hover{background:var(--brand-burgundy-dark)}
+    .status-badge{display:inline-block;padding:4px 9px;border-radius:12px;font-size:.78rem;font-weight:600;background:#F5F1EA;color:var(--brand-burgundy-dark);border:1px solid var(--border-color)}
     .modal-overlay{position:fixed;inset:0;background:rgba(44,24,16,.5);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:9999}.modal{background:#fff;border-radius:10px;border-top:5px solid var(--brand-burgundy);width:90vw;max-height:90vh;overflow:auto;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.25)}.modal-header{margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border-color)}.modal-header h2{font-family:'Montserrat',sans-serif;color:var(--brand-burgundy-dark);font-size:1.4rem;font-weight:700}.modal-footer{text-align:right;margin-top:20px;padding-top:15px;border-top:1px solid var(--border-color)}
     .form-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:14px;margin-bottom:18px}.field label{display:block;font-size:.78rem;font-weight:600;color:var(--text-muted);margin-bottom:5px}.field input,.field select{width:100%}.readonly{background:#f5f1ea!important}.detail-wrap{overflow:auto}.detail-table{margin-top:8px;white-space:nowrap}.detail-table input{width:110px;text-align:right}.detail-table .qty-balance{font-weight:600}.empty{padding:20px;text-align:center;color:var(--text-muted)}#drProcessingOverlay{position:fixed;inset:0;background:rgba(250,246,238,.85);display:none;align-items:center;justify-content:center;z-index:10000;font-size:1.2rem;font-weight:600;font-family:'Montserrat',sans-serif;color:var(--brand-burgundy)}.select2-container--open .select2-dropdown{z-index:10000!important}.select2-container{width:100%!important}.select2-selection{min-height:37px!important;border:1px solid var(--border-color)!important;border-radius:6px!important}.select2-selection__rendered{line-height:35px!important}.select2-selection__arrow{height:35px!important}@media(max-width:900px){.form-grid{grid-template-columns:repeat(2,minmax(160px,1fr))}.search-row{justify-content:flex-start;flex-wrap:wrap}}
   </style>
@@ -26,33 +28,238 @@
 <body>
 <div class="container">
   <div id="drHeader" class="flex-space"><div><h1>Delivery Receipts</h1><h2>Add and manage your delivery receipts</h2></div><button id="drBtnNew"><i class="fa fa-plus"></i> New DR</button></div>
-  <div class="search-row"><select id="drSearchCriteria" class="search-select"><option>All</option><option>DR ID</option><option>Customer Name</option><option>SO ID</option><option>Invoice Num</option></select><input id="drSearchInput" class="search-input" type="text" placeholder="Search..."><button id="drBtnSearch">Search</button><button id="drBtnClear" class="btn-clear">Clear</button></div>
-  <table id="drList"><thead><tr><th>DR Date</th><th>DR ID</th><th>Customer ID</th><th>Customer Name</th><th>SO ID</th><th>Invoice Num</th><th>DR Amount</th><th>Actions</th></tr></thead><tbody></tbody></table>
+  <div class="search-row"><select id="drSearchCriteria" class="search-select"><option>All</option><option>DR ID</option><option>Customer Name</option><option>SO ID</option><option>Invoice Num</option><option>DR Status</option></select><input id="drSearchInput" class="search-input" type="text" placeholder="Search..."><button id="drBtnSearch">Search</button><button id="drBtnClear" class="btn-clear">Clear</button></div>
+  <table id="drList"><thead><tr><th>DR Date</th><th>DR ID</th><th>Customer ID</th><th>Customer Name</th><th>SO ID</th><th>Invoice Num</th><th>DR Status</th><th>DR Amount</th><th>Actions</th></tr></thead><tbody></tbody></table>
 </div>
 <div id="drProcessingOverlay"><i class="fa fa-spinner fa-pulse"></i>&nbsp; Processing...</div>
 <div id="drModalOverlay" class="modal-overlay"><div class="modal"><div class="modal-header"><h2 id="drModalTitle">New Delivery Receipt</h2></div><div id="drModalBody"></div><div id="drModalFooter" class="modal-footer"></div></div></div>
 <script>
-  // Set false to disable editing from the front end without changing the backend.
-  const DR_EDIT_ENABLED = true;
+  // Backend edit capability remains available, but the operational UI is View/Delete only.
+  const DR_EDIT_ENABLED = false;
   let drAllData=[];let drCustomers=[];let drCurrent=null;let drMode='new';let drSourceDetails=[];
-  const esc=v=>{if(v===null||v===undefined)return '';return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#039;')};
-  const num=v=>Number(v)||0;function showProcessing(v){document.getElementById('drProcessingOverlay').style.display=v?'flex':'none'}function closeModal(){document.getElementById('drModalOverlay').style.display='none';drCurrent=null;drSourceDetails=[]}function openModal(){document.getElementById('drModalOverlay').style.display='flex'}function alertError(err){showProcessing(false);alert((err&&err.message)?err.message:String(err))}
-  document.addEventListener('DOMContentLoaded',()=>{document.getElementById('drBtnNew').onclick=drNew;document.getElementById('drBtnSearch').onclick=drSearch;document.getElementById('drBtnClear').onclick=()=>{document.getElementById('drSearchInput').value='';drRenderList(drAllData)};document.getElementById('drSearchInput').addEventListener('keydown',e=>{if(e.key==='Enter')drSearch()});drRefresh()});
-  function drRefresh(){showProcessing(true);google.script.run.withSuccessHandler(data=>{drAllData=data||[];drRenderList(drAllData);showProcessing(false)}).withFailureHandler(alertError).drGetAllDR()}
-  function drSearch(){const q=document.getElementById('drSearchInput').value.trim().toLowerCase();const c=document.getElementById('drSearchCriteria').value;if(!q){drRenderList(drAllData);return}drRenderList(drAllData.filter(r=>{const vals=c==='All'?[r['DR ID'],r['Customer Name'],r['SO ID'],r['Invoice Num']]:[r[c]];return vals.some(v=>String(v??'').toLowerCase().includes(q))}))}
-  function drRenderList(rows){const body=document.querySelector('#drList tbody');body.innerHTML='';if(!rows.length){body.innerHTML='<tr><td colspan="8" class="empty">No delivery receipts found.</td></tr>';return}rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(r['DR Date'])}</td><td>${esc(r['DR ID'])}</td><td>${esc(r['Customer ID'])}</td><td>${esc(r['Customer Name'])}</td><td>${esc(r['SO ID'])}</td><td>${esc(r['Invoice Num'])}</td><td>${num(r['DR Amount']).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td><div class="action-cell"><button class="action-btn view-btn" onclick="drView('${esc(r['DR ID'])}')"><i class="fa fa-eye"></i> View</button>${DR_EDIT_ENABLED?`<button class="action-btn edit-btn" onclick="drEdit('${esc(r['DR ID'])}')"><i class="fa fa-pen"></i> Edit</button>`:''}<button class="action-btn delete-btn" onclick="drDelete('${esc(r['DR ID'])}')"><i class="fa fa-trash"></i> Delete</button></div></td>`;body.appendChild(tr)})}
-  function drNew(){drMode='new';drCurrent=null;showProcessing(true);google.script.run.withSuccessHandler(customers=>{drCustomers=customers||[];drRenderModal();showProcessing(false);openModal()}).withFailureHandler(alertError).drGetCustomers()}
-  function drRenderModal(){document.getElementById('drModalTitle').textContent=drMode==='new'?'New Delivery Receipt':(drMode==='edit'?'Edit Delivery Receipt':'View Delivery Receipt');const h=drCurrent?.header||{};document.getElementById('drModalBody').innerHTML=`<div class="form-grid"><div class="field"><label>DR Date</label><input id="drDate" type="date" value="${esc(formatDateInput(h['DR Date'])||today())}" ${drMode==='view'?'disabled':''}></div><div class="field"><label>DR ID</label><input id="drID" class="readonly" value="${esc(h['DR ID']||'Auto-generated')}" readonly></div><div class="field"><label>Customer</label><select id="drCustomer" ${drMode==='view'?'disabled':''}><option value="">Select customer...</option>${drCustomers.map(c=>`<option value="${esc(c['Customer ID'])}">${esc(c['Customer ID'])} - ${esc(c['Customer Name'])}</option>`).join('')}</select></div><div class="field"><label>Sales Order</label><select id="drSO" ${drMode==='view'?'disabled':''}><option value="">Select Sales Order...</option></select></div><div class="field"><label>Invoice Num</label><input id="drInvoice" value="${esc(h['Invoice Num']||'')}" ${drMode==='view'?'disabled':''}></div><div class="field"><label>Customer State</label><input id="drState" class="readonly" value="${esc(h['State']||'')}" readonly></div><div class="field"><label>Customer City</label><input id="drCity" class="readonly" value="${esc(h['City']||'')}" readonly></div><div class="field"><label>DR Amount</label><input id="drAmount" class="readonly" value="${num(h['DR Amount']).toFixed(2)}" readonly></div></div><div class="detail-wrap"><table class="detail-table" id="drDetailsTable"><thead><tr><th>Sales Detail ID</th><th>Item ID</th><th>Item Name</th><th>QTY Ordered</th><th>QTY Balance</th><th>Delivery Qty</th></tr></thead><tbody><tr><td colspan="6" class="empty">Select a customer and Sales Order.</td></tr></tbody></table></div>`;const footer=document.getElementById('drModalFooter');footer.innerHTML=`<button class="btn-clear" onclick="closeModal()">Close</button>${drMode!=='view'?'<button id="drSaveBtn"><i class="fa fa-save"></i> Save</button>':''}`;$('#drCustomer').select2({dropdownParent:$('#drModalOverlay'),placeholder:'Select customer...'});$('#drSO').select2({dropdownParent:$('#drModalOverlay'),placeholder:'Select Sales Order...'});$('#drCustomer').on('change',()=>drCustomerChanged($('#drCustomer').val()));$('#drSO').on('change',()=>drSOChanged($('#drSO').val()));if(drMode!=='view')document.getElementById('drSaveBtn').onclick=drSave;if(h['Customer ID'])$('#drCustomer').val(String(h['Customer ID'])).trigger('change');}
-  function formatDateInput(v){if(!v)return '';const s=String(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const d=new Date(s);if(isNaN(d))return '';return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
-  function drCustomerChanged(customerID){if(!customerID)return;const c=drCustomers.find(x=>String(x['Customer ID'])===String(customerID));if(c){document.getElementById('drState').value=c['State']||'';document.getElementById('drCity').value=c['City']||''}showProcessing(true);const currentDRID=drCurrent?.header?.['DR ID']||'';google.script.run.withSuccessHandler(orders=>{const select=$('#drSO');select.empty().append('<option value="">Select Sales Order...</option>');(orders||[]).forEach(o=>select.append(new Option(`${o['SO ID']} - ${o['SO Date']||''} - ${o['SO Status']||''}`,o['SO ID'])));if(drCurrent?.header?.['SO ID'])select.val(String(drCurrent.header['SO ID']).trim()).trigger('change');showProcessing(false)}).withFailureHandler(alertError).drGetOpenSalesOrders(customerID,currentDRID)}
-  function drSOChanged(soID){if(!soID)return;showProcessing(true);const currentDRID=drCurrent?.header?.['DR ID']||'';google.script.run.withSuccessHandler(rows=>{drSourceDetails=rows||[];drRenderDetails();showProcessing(false)}).withFailureHandler(alertError).drGetOutstandingSalesDetails(soID,currentDRID)}
-  function drRenderDetails(){const body=document.querySelector('#drDetailsTable tbody');body.innerHTML='';if(!drSourceDetails.length){body.innerHTML='<tr><td colspan="6" class="empty">No outstanding Sales Details for this Sales Order.</td></tr>';return}const existing=drCurrent?.details||[];drSourceDetails.forEach(src=>{const old=existing.find(x=>String(x['Sales Detail ID'])===String(src['Detail ID']));const currentBalance=num(src['QTY Balance'])+(old?num(old['QTY Delivered']):0);const qty=old?num(old['QTY Delivered']):0;const tr=document.createElement('tr');tr.dataset.salesDetailId=src['Detail ID'];tr.innerHTML=`<td>${esc(src['Detail ID'])}</td><td>${esc(src['Item ID'])}</td><td>${esc(src['Item Name'])}</td><td>${num(src['QTY Ordered'])}</td><td class="qty-balance">${currentBalance}</td><td><input class="drQty" type="number" min="0" max="${currentBalance}" step="any" value="${qty}" ${drMode==='view'?'disabled':''}></td>`;body.appendChild(tr)});}
-  function drCollectDetails(){const rows=[];document.querySelectorAll('#drDetailsTable tbody tr[data-sales-detail-id]').forEach(tr=>{const qty=num(tr.querySelector('.drQty')?.value);if(qty>0)rows.push({'Sales Detail ID':tr.dataset.salesDetailId,'QTY Delivered':qty});});return rows}
-  function drValidateClient(){const all=document.querySelectorAll('#drDetailsTable tbody tr[data-sales-detail-id]');if(!all.length){alert('No Sales Details available for delivery.');return false}for(const tr of all){const input=tr.querySelector('.drQty');const qty=Number(input.value);const max=num(tr.querySelector('.qty-balance').textContent);if(!Number.isFinite(qty)||qty<=0){alert(`Delivery quantity for ${tr.dataset.salesDetailId} must be greater than zero.`);return false}if(qty>max){alert(`Delivery quantity for ${tr.dataset.salesDetailId} cannot exceed ${max}.`);return false}}return true}
-  function drSave(){if(!drValidateClient())return;const customerID=$('#drCustomer').val();const soID=$('#drSO').val();if(!customerID){alert('Please select a customer.');return}if(!soID){alert('Please select a Sales Order.');return}const payload={master:{'DR Date':document.getElementById('drDate').value,'DR ID':document.getElementById('drID').value==='Auto-generated'?'':document.getElementById('drID').value,'Customer ID':customerID,'SO ID':soID,'Invoice Num':document.getElementById('drInvoice').value},details:{DeliveryDetails:drCollectDetails()}};showProcessing(true);google.script.run.withSuccessHandler(result=>{showProcessing(false);closeModal();drRefresh();alert(`Delivery Receipt ${result.drID} saved successfully.`)}).withFailureHandler(alertError).drSaveDeliveryReceipt(payload)}
-  function drView(id){showProcessing(true);google.script.run.withSuccessHandler(doc=>{drMode='view';drCurrent=doc;google.script.run.withSuccessHandler(c=>{drCustomers=c||[];drRenderModal();showProcessing(false);openModal();setTimeout(()=>drRenderDetails(),250)}).withFailureHandler(alertError).drGetCustomers()}).withFailureHandler(alertError).drGetDeliveryReceipt(id)}
-  function drEdit(id){if(!DR_EDIT_ENABLED)return;showProcessing(true);google.script.run.withSuccessHandler(doc=>{drMode='edit';drCurrent=doc;google.script.run.withSuccessHandler(c=>{drCustomers=c||[];drRenderModal();showProcessing(false);openModal();setTimeout(()=>drRenderDetails(),250)}).withFailureHandler(alertError).drGetCustomers()}).withFailureHandler(alertError).drGetDeliveryReceipt(id)}
-  function drDelete(id){if(!confirm(`Delete Delivery Receipt ${id}? This will reverse its delivery effects.`))return;showProcessing(true);google.script.run.withSuccessHandler(()=>{showProcessing(false);drRefresh();alert(`Delivery Receipt ${id} deleted successfully.`)}).withFailureHandler(alertError).drDeleteDeliveryReceipt(id)}
+
+  const esc=v=>{if(v===null||v===undefined)return '';return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')};
+  const num=v=>Number(v)||0;
+  function showProcessing(v){document.getElementById('drProcessingOverlay').style.display=v?'flex':'none'}
+  function closeModal(){document.getElementById('drModalOverlay').style.display='none';drCurrent=null;drSourceDetails=[]}
+  function openModal(){document.getElementById('drModalOverlay').style.display='flex'}
+  function alertError(err){showProcessing(false);alert((err&&err.message)?err.message:String(err))}
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById('drBtnNew').onclick=drNew;
+    document.getElementById('drBtnSearch').onclick=drSearch;
+    document.getElementById('drBtnClear').onclick=()=>{document.getElementById('drSearchInput').value='';drRenderList(drAllData)};
+    document.getElementById('drSearchInput').addEventListener('keydown',e=>{if(e.key==='Enter')drSearch()});
+    drRefresh();
+  });
+
+  function drRefresh(){
+    showProcessing(true);
+    google.script.run.withSuccessHandler(data=>{drAllData=data||[];drRenderList(drAllData);showProcessing(false)}).withFailureHandler(alertError).drGetAllDR()
+  }
+
+  function drSearch(){
+    const q=document.getElementById('drSearchInput').value.trim().toLowerCase();
+    const c=document.getElementById('drSearchCriteria').value;
+    if(!q){drRenderList(drAllData);return}
+    drRenderList(drAllData.filter(r=>{
+      const vals=c==='All'?[r['DR ID'],r['Customer Name'],r['SO ID'],r['Invoice Num'],r['DR Status']]:[r[c]];
+      return vals.some(v=>String(v??'').toLowerCase().includes(q));
+    }))
+  }
+
+  function drRenderList(rows){
+    const body=document.querySelector('#drList tbody');
+    body.innerHTML='';
+    if(!rows.length){body.innerHTML='<tr><td colspan="9" class="empty">No delivery receipts found.</td></tr>';return}
+    rows.forEach(r=>{
+      const tr=document.createElement('tr');
+      const status=esc(r['DR Status']||'Open');
+      tr.innerHTML=`<td>${esc(r['DR Date'])}</td><td>${esc(r['DR ID'])}</td><td>${esc(r['Customer ID'])}</td><td>${esc(r['Customer Name'])}</td><td>${esc(r['SO ID'])}</td><td>${esc(r['Invoice Num'])}</td><td><span class="status-badge">${status}</span></td><td>${num(r['DR Amount']).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td><div class="action-cell"><button class="action-btn view-btn" onclick="drView('${esc(r['DR ID'])}')"><i class="fa fa-eye"></i> View</button>${DR_EDIT_ENABLED?`<button class="action-btn edit-btn" onclick="drEdit('${esc(r['DR ID'])}')"><i class="fa fa-pen"></i> Edit</button>`:''}<button class="action-btn delete-btn" onclick="drDelete('${esc(r['DR ID'])}')"><i class="fa fa-trash"></i> Delete</button></div></td>`;
+      body.appendChild(tr)
+    })
+  }
+
+  function drNew(){
+    drMode='new';drCurrent=null;drSourceDetails=[];showProcessing(true);
+    google.script.run.withSuccessHandler(customers=>{drCustomers=customers||[];drRenderModal();showProcessing(false);openModal()}).withFailureHandler(alertError).drGetCustomers()
+  }
+
+  function drRenderModal(){
+    const isView=drMode==='view';
+    const h=drCurrent?.header||{};
+    const status=h['DR Status']||'Open';
+    document.getElementById('drModalTitle').textContent=drMode==='new'?'New Delivery Receipt':(drMode==='edit'?'Edit Delivery Receipt':'View Delivery Receipt');
+
+    const customerOptions=drCustomers.map(c=>`<option value="${esc(c['Customer ID'])}">${esc(c['Customer ID'])} - ${esc(c['Customer Name'])}</option>`).join('');
+    const soOption=isView&&h['SO ID']?`<option value="${esc(h['SO ID'])}" selected>${esc(h['SO ID'])}</option>`:'<option value="">Select Sales Order...</option>';
+
+    document.getElementById('drModalBody').innerHTML=`<div class="form-grid"><div class="field"><label>DR Date</label><input id="drDate" type="date" value="${esc(formatDateInput(h['DR Date'])||today())}" ${isView?'disabled':''}></div><div class="field"><label>DR ID</label><input id="drID" class="readonly" value="${esc(h['DR ID']||'Auto-generated')}" readonly></div><div class="field"><label>DR Status</label><input id="drStatus" class="readonly" value="${esc(status)}" readonly></div><div class="field"><label>Customer</label><select id="drCustomer" ${isView?'disabled':''}><option value="">Select customer...</option>${customerOptions}</select></div><div class="field"><label>Sales Order</label><select id="drSO" ${isView?'disabled':''}>${soOption}</select></div><div class="field"><label>Invoice Num</label><input id="drInvoice" value="${esc(h['Invoice Num']||'')}" ${isView?'disabled':''}></div><div class="field"><label>Customer State</label><input id="drState" class="readonly" value="${esc(h['State']||'')}" readonly></div><div class="field"><label>Customer City</label><input id="drCity" class="readonly" value="${esc(h['City']||'')}" readonly></div><div class="field"><label>DR Amount</label><input id="drAmount" class="readonly" value="${num(h['DR Amount']).toFixed(2)}" readonly></div></div><div class="detail-wrap"><table class="detail-table" id="drDetailsTable"><thead><tr><th>Sales Detail ID</th><th>Item ID</th><th>Item Name</th><th>QTY Ordered</th><th>QTY Balance Before Delivery</th><th>QTY Delivered</th></tr></thead><tbody><tr><td colspan="6" class="empty">Select a customer and Sales Order.</td></tr></tbody></table></div>`;
+
+    const footer=document.getElementById('drModalFooter');
+    footer.innerHTML=`<button class="btn-clear" onclick="closeModal()">Close</button>${drMode!=='view'?'<button id="drSaveBtn"><i class="fa fa-save"></i> Save</button>':''}`;
+
+    $('#drCustomer').select2({dropdownParent:$('#drModalOverlay'),placeholder:'Select customer...'});
+    $('#drSO').select2({dropdownParent:$('#drModalOverlay'),placeholder:'Select Sales Order...'});
+
+    if(!isView){
+      $('#drCustomer').on('change',()=>drCustomerChanged($('#drCustomer').val()));
+      $('#drSO').on('change',()=>drSOChanged($('#drSO').val()));
+      if(drMode!=='view')document.getElementById('drSaveBtn').onclick=drSave;
+      if(h['Customer ID'])$('#drCustomer').val(String(h['Customer ID'])).trigger('change');
+    }else{
+      if(h['Customer ID'])$('#drCustomer').val(String(h['Customer ID'])).trigger('change.select2');
+      if(h['SO ID'])$('#drSO').val(String(h['SO ID'])).trigger('change.select2');
+    }
+  }
+
+  function formatDateInput(v){if(!v)return '';const s=String(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const d=new Date(s);if(isNaN(d))return '';return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+  function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+
+  function drCustomerChanged(customerID){
+    if(!customerID)return;
+    const c=drCustomers.find(x=>String(x['Customer ID'])===String(customerID));
+    if(c){document.getElementById('drState').value=c['State']||'';document.getElementById('drCity').value=c['City']||''}
+    showProcessing(true);
+    const currentDRID=drCurrent?.header?.['DR ID']||'';
+    google.script.run.withSuccessHandler(orders=>{
+      const select=$('#drSO');
+      select.empty().append('<option value="">Select Sales Order...</option>');
+      (orders||[]).forEach(o=>select.append(new Option(`${o['SO ID']} - ${o['SO Date']||''} - ${o['SO Status']||''}`,o['SO ID'])));
+      if(drCurrent?.header?.['SO ID'])select.val(String(drCurrent.header['SO ID']).trim()).trigger('change');
+      showProcessing(false)
+    }).withFailureHandler(alertError).drGetOpenSalesOrders(customerID,currentDRID)
+  }
+
+  function drSOChanged(soID){
+    if(!soID)return;
+    showProcessing(true);
+    const currentDRID=drCurrent?.header?.['DR ID']||'';
+    google.script.run.withSuccessHandler(rows=>{drSourceDetails=rows||[];drRenderDetails();showProcessing(false)}).withFailureHandler(alertError).drGetOutstandingSalesDetails(soID,currentDRID)
+  }
+
+  function drRenderDetails(){
+    const body=document.querySelector('#drDetailsTable tbody');
+    body.innerHTML='';
+
+    if(drMode==='view'){
+      const rows=drCurrent?.details||[];
+      if(!rows.length){body.innerHTML='<tr><td colspan="6" class="empty">No Delivery Details found for this receipt.</td></tr>';return}
+      rows.forEach(src=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${esc(src['Sales Detail ID'])}</td><td>${esc(src['Item ID'])}</td><td>${esc(src['Item Name'])}</td><td>${num(src['QTY Ordered'])}</td><td class="qty-balance">${num(src['QTY Balance'])}</td><td>${num(src['QTY Delivered'])}</td>`;
+        body.appendChild(tr)
+      });
+      return;
+    }
+
+    if(!drSourceDetails.length){body.innerHTML='<tr><td colspan="6" class="empty">No outstanding Sales Details for this Sales Order.</td></tr>';return}
+    const existing=drCurrent?.details||[];
+    drSourceDetails.forEach(src=>{
+      const old=existing.find(x=>String(x['Sales Detail ID'])===String(src['Detail ID']));
+      const currentBalance=num(src['QTY Balance'])+(old?num(old['QTY Delivered']):0);
+      const qty=old?num(old['QTY Delivered']):0;
+      const tr=document.createElement('tr');
+      tr.dataset.salesDetailId=src['Detail ID'];
+      tr.innerHTML=`<td>${esc(src['Detail ID'])}</td><td>${esc(src['Item ID'])}</td><td>${esc(src['Item Name'])}</td><td>${num(src['QTY Ordered'])}</td><td class="qty-balance">${currentBalance}</td><td><input class="drQty" type="number" min="0" max="${currentBalance}" step="any" value="${qty}"></td>`;
+      body.appendChild(tr)
+    })
+  }
+
+  function drCollectDetails(){
+    const rows=[];
+    document.querySelectorAll('#drDetailsTable tbody tr[data-sales-detail-id]').forEach(tr=>{
+      const raw=tr.querySelector('.drQty')?.value;
+      const qty=raw===''?0:Number(raw);
+      if(Number.isFinite(qty)&&qty>0)rows.push({'Sales Detail ID':tr.dataset.salesDetailId,'QTY Delivered':qty});
+    });
+    return rows
+  }
+
+  // QTY > 0 is a DR-level validation: at least one line must have a positive quantity.
+  // Other loaded lines may legitimately remain at zero for a partial delivery.
+  function drValidateClient(){
+    const all=document.querySelectorAll('#drDetailsTable tbody tr[data-sales-detail-id]');
+    if(!all.length){alert('No Sales Details available for delivery.');return false}
+
+    let positiveLines=0;
+    for(const tr of all){
+      const input=tr.querySelector('.drQty');
+      const raw=input?input.value:'';
+      const qty=raw===''?0:Number(raw);
+      const max=num(tr.querySelector('.qty-balance').textContent);
+
+      if(!Number.isFinite(qty)||qty<0){
+        alert(`Invalid delivery quantity for ${tr.dataset.salesDetailId}. Quantity cannot be negative.`);
+        return false
+      }
+
+      if(qty>0){
+        positiveLines++;
+        if(qty>max){
+          alert(`Delivery quantity for ${tr.dataset.salesDetailId} cannot exceed ${max}.`);
+          return false
+        }
+      }
+    }
+
+    if(positiveLines===0){
+      alert('At least one delivery quantity must be greater than zero.');
+      return false
+    }
+    return true
+  }
+
+  function drSave(){
+    if(!drValidateClient())return;
+    const customerID=$('#drCustomer').val();
+    const soID=$('#drSO').val();
+    if(!customerID){alert('Please select a customer.');return}
+    if(!soID){alert('Please select a Sales Order.');return}
+
+    const payload={master:{'DR Date':document.getElementById('drDate').value,'DR ID':document.getElementById('drID').value==='Auto-generated'?'':document.getElementById('drID').value,'Customer ID':customerID,'SO ID':soID,'Invoice Num':document.getElementById('drInvoice').value},details:{DeliveryDetails:drCollectDetails()}};
+    console.log('DR_SAVE_PAYLOAD',payload);
+    showProcessing(true);
+    google.script.run.withSuccessHandler(result=>{showProcessing(false);closeModal();drRefresh();alert(`Delivery Receipt ${result.drID} saved successfully.`)}).withFailureHandler(alertError).drSaveDeliveryReceipt(payload)
+  }
+
+  function drView(id){
+    showProcessing(true);
+    google.script.run.withSuccessHandler(doc=>{
+      drMode='view';
+      drCurrent=doc;
+      google.script.run.withSuccessHandler(c=>{
+        drCustomers=c||[];
+        drRenderModal();
+        drRenderDetails();
+        showProcessing(false);
+        openModal();
+      }).withFailureHandler(alertError).drGetCustomers()
+    }).withFailureHandler(alertError).drGetDeliveryReceipt(id)
+  }
+
+  // Retained for future re-enablement. The operational UI currently does not expose Edit.
+  function drEdit(id){
+    if(!DR_EDIT_ENABLED)return;
+    showProcessing(true);
+    google.script.run.withSuccessHandler(doc=>{
+      drMode='edit';
+      drCurrent=doc;
+      google.script.run.withSuccessHandler(c=>{
+        drCustomers=c||[];
+        drRenderModal();
+        showProcessing(false);
+        openModal();
+        setTimeout(()=>drRenderDetails(),250)
+      }).withFailureHandler(alertError).drGetCustomers()
+    }).withFailureHandler(alertError).drGetDeliveryReceipt(id)
+  }
+
+  function drDelete(id){
+    if(!confirm(`Delete Delivery Receipt ${id}? This will reverse its delivery effects.`))return;
+    showProcessing(true);
+    google.script.run.withSuccessHandler(()=>{showProcessing(false);drRefresh();alert(`Delivery Receipt ${id} deleted successfully.`)}).withFailureHandler(alertError).drDeleteDeliveryReceipt(id)
+  }
 </script>
 </body>
 </html>
