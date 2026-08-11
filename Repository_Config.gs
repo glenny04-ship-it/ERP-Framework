@@ -49,11 +49,18 @@ const Registry = {
             foreignKey: "PO ID"
         },
 
-        Receipts: {
-            sheet: "Receipts",
+        DeliveryReceipts: {
+            sheet: "Delivery Receipts",
             headerRow: 1,
-            primaryKey: "Receipt ID",
+            primaryKey: "DR ID",
             foreignKey: "SO ID"
+        },
+
+        DeliveryDetails: {
+            sheet: "Delivery Details",
+            headerRow: 1,
+            primaryKey: "SO DR Detail ID",
+            foreignKey: "DR ID"
         },
 
         Payments: {
@@ -107,7 +114,32 @@ Documents: {
 
     primaryKey: "PO ID"
 
-  }
+  },
+
+  DeliveryReceipt: {
+
+  headerTable: "DeliveryReceipts",
+
+  primaryKey: "DR ID",
+
+  idStrategy: {
+    type: "Sequence",
+    prefix: "DR-",
+    padding: 4
+  },
+
+  detailTables: [
+    {
+      table: "DeliveryDetails",
+      foreignKey: "DR ID",
+      displayOrderField: "Display Order",
+      idStrategy: {
+        type: "ParentSequence",
+        prefixField: "DR ID"
+      }
+    }
+  ]
+},
 
 
     },
