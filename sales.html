@@ -768,7 +768,7 @@ function openSalesOrderEditor(soDocument = null) {
             if (currentMode === "new") {
 
                 document.getElementById("soNewDate").value = new Date().toISOString().split("T")[0];
-                document.getElementById("soNewSOStatus").value = "Not Fulfilled";
+                document.getElementById("soNewSOStatus").value = "Open";
 
                 // Generate Sales Order ID
                 google.script.run
