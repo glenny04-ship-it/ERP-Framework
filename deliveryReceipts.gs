@@ -5,19 +5,7 @@
  * Delivery Receipt = physical fulfillment.
  * It does NOT recognize revenue.
  *
- * Effects of a delivery:
- * - SalesDetails.QTY Delivered increases
- * - Inventory.QTY On-Hand decreases
- * - Inventory.QTY Allocated decreases
- * - Inventory.QTY Delivered increases
- * - Customer.Total Deliveries increases by DR Amount
- * - SalesOrders.SO Status is recalculated
- *
- * DeliveryDetails.QTY Balance is a snapshot of the Sales Detail
- * balance BEFORE the delivery. SalesDetails.QTY Balance remains
- * formula-driven and is never written by this module.
- *
- * One DR = one Sales Order.
+ * Shipping and tax are prorated per delivered line.
  * ============================================================
  */
 
@@ -48,13 +36,22 @@ function drGetCustomers() {
   return Repository_getRows(DR_CUSTOMER_TABLE);
 }
 
-function drGetOpenSalesOrders(customerID) {
+function drGetOpenSalesOrders(customerID, currentDRID) {
   drRequireCustomer_(customerID);
+  let currentSOID = "";
+
+  if (currentDRID) {
+    const currentDR = Repository_getById(DR_HEADER_TABLE, currentDRID);
+    if (currentDR) currentSOID = String(currentDR["SO ID"] || "");
+  }
+
   return Repository_getRows(DR_SO_TABLE)
-    .filter(row =>
-      String(row["Customer ID"]) === String(customerID) &&
-      String(row["SO Status"] || "Open").trim() !== "Fulfilled"
-    )
+    .filter(row => {
+      const sameCustomer = String(row["Customer ID"]) === String(customerID);
+      const status = String(row["SO Status"] || "Open").trim();
+      const isCurrentSO = currentSOID && String(row["SO ID"]) === currentSOID;
+      return sameCustomer && (status !== "Fulfilled" || isCurrentSO);
+    })
     .map(row => {
       const result = Object.assign({}, row);
       if (result["SO Date"] instanceof Date) {
@@ -64,13 +61,26 @@ function drGetOpenSalesOrders(customerID) {
     });
 }
 
-function drGetOutstandingSalesDetails(soID) {
+function drGetOutstandingSalesDetails(soID, currentDRID) {
   drRequireSalesOrder_(soID);
+  const currentDetailIDs = {};
+
+  if (currentDRID) {
+    Repository_getRows(DR_DETAIL_TABLE)
+      .filter(row => String(row["DR ID"]) === String(currentDRID))
+      .forEach(row => {
+        const id = String(row["Sales Detail ID"] || "").trim();
+        if (id) currentDetailIDs[id] = true;
+      });
+  }
+
   return Repository_getRows(DR_SD_TABLE)
-    .filter(row =>
-      String(row["SO ID"]) === String(soID) &&
-      (Number(row["QTY Balance"]) || 0) !== 0
-    )
+    .filter(row => {
+      if (String(row["SO ID"]) !== String(soID)) return false;
+      const balance = Number(row["QTY Balance"]) || 0;
+      const isCurrentDRLine = !!currentDetailIDs[String(row["Detail ID"] || "")];
+      return balance !== 0 || isCurrentDRLine;
+    })
     .map(row => {
       const result = Object.assign({}, row);
       if (result["SO Date"] instanceof Date) {
@@ -124,20 +134,6 @@ function drValidateSOCustomer_(so, customerID) {
   }
 }
 
-function drValidateQty_(qty, balance, detailID) {
-  const q = Number(qty);
-  const b = Number(balance);
-  if (!Number.isFinite(q) || q <= 0) {
-    throw new Error(`Invalid delivery quantity for ${detailID}. Quantity must be greater than zero.`);
-  }
-  if (!Number.isFinite(b) || b <= 0) {
-    throw new Error(`Sales Detail ${detailID} has no remaining balance.`);
-  }
-  if (q > b) {
-    throw new Error(`Invalid delivery quantity for ${detailID}. Maximum deliverable quantity is ${b}.`);
-  }
-}
-
 function drNormalizePayloadDetails_(payload) {
   if (!payload || !payload.details) return [];
   if (Array.isArray(payload.details)) return payload.details;
@@ -148,53 +144,67 @@ function drNormalizePayloadDetails_(payload) {
 function drCalculateStatus_(soID) {
   const rows = Repository_getRows(DR_SD_TABLE).filter(r => String(r["SO ID"]) === String(soID));
   if (!rows.length) return "Open";
+
   let ordered = 0;
   let delivered = 0;
   rows.forEach(r => {
     ordered += Number(r["QTY Ordered"]) || 0;
     delivered += Number(r["QTY Delivered"]) || 0;
   });
+
   if (delivered <= 0) return "Open";
   if (ordered > 0 && delivered >= ordered) return "Fulfilled";
   return "Partially Fulfilled";
 }
 
 /* ============================================================
+ * LOGGING
+ * ============================================================ */
+
+function drLogUpdate_(table, primaryKeyField, primaryKeyValue, fields, reason) {
+  console.log(JSON.stringify({
+    diagnostic: "DR_RELATED_TABLE_UPDATE",
+    table: table,
+    primaryKeyField: primaryKeyField,
+    primaryKeyValue: primaryKeyValue,
+    fields: fields || {},
+    reason: reason || "Delivery Receipt integration"
+  }));
+}
+
+/* ============================================================
  * AMOUNT / DELTA HELPERS
  * ============================================================ */
 
-function drCalculateLineAmount_(source, qty) {
+/**
+ * Shipping = total line shipping fee * (delivered / ordered).
+ * Tax is calculated on delivered merchandise + allocated shipping.
+ */
+function drCalculateLineAmount_(source, deliveredQty) {
+  const orderedQty = Number(source["QTY Ordered"]) || 0;
   const unitPrice = Number(source["Unit Price"]) || 0;
+  const shippingTotal = Number(source["Shipping Fees"]) || 0;
   const taxRate = Number(source["Tax Rate"]) || 0;
-  const merchandise = Number(qty) * unitPrice;
-  return merchandise + (merchandise * taxRate);
+  const qty = Number(deliveredQty) || 0;
+
+  if (orderedQty <= 0 || qty <= 0) return 0;
+
+  const merchandise = qty * unitPrice;
+  const shipping = shippingTotal * (qty / orderedQty);
+  const taxableAmount = merchandise + shipping;
+  const tax = taxableAmount * taxRate;
+
+  return taxableAmount + tax;
 }
 
-function drIsFirstDeliveryForSO_(soID, excludingDRID) {
-  return !Repository_getRows(DR_HEADER_TABLE).some(row =>
-    String(row["SO ID"]) === String(soID) &&
-    String(row["DR ID"]) !== String(excludingDRID || "")
-  );
-}
-
-function drCalculateAmount_(so, sourceByID, lines, drID) {
+function drCalculateAmount_(sourceByID, lines) {
   let amount = 0;
-  lines.forEach(line => {
-    const source = sourceByID[String(line["Sales Detail ID"])];
-    if (!source) throw new Error(`Sales Detail ${line["Sales Detail ID"]} not found.`);
+  (lines || []).forEach(line => {
+    const detailID = String(line["Sales Detail ID"] || "");
+    const source = sourceByID[detailID];
+    if (!source) throw new Error(`Sales Detail ${detailID} not found while calculating DR amount.`);
     amount += drCalculateLineAmount_(source, Number(line["QTY Delivered"]));
   });
-
-  if (drIsFirstDeliveryForSO_(so["SO ID"], drID)) {
-    const seen = {};
-    Object.keys(sourceByID).forEach(id => {
-      const shipping = Number(sourceByID[id]["Shipping Fees"]) || 0;
-      if (shipping && !seen[id]) {
-        amount += shipping;
-        seen[id] = true;
-      }
-    });
-  }
   return amount;
 }
 
@@ -213,11 +223,13 @@ function drBuildDeliveryDelta_(oldRows, newRows) {
   const newMap = drAggregateQty_(newRows);
   const ids = Object.assign({}, oldMap, newMap);
   const delta = {};
+
   Object.keys(ids).forEach(id => {
     const d = (Number(newMap[id]) || 0) - (Number(oldMap[id]) || 0);
     if (d !== 0) delta[id] = d;
   });
-  console.log(JSON.stringify({diagnostic:"DR_DELIVERY_DELTA", oldMap, newMap, delta}));
+
+  console.log(JSON.stringify({ diagnostic: "DR_DELIVERY_DELTA", oldMap, newMap, delta }));
   return delta;
 }
 
@@ -229,62 +241,108 @@ function drApplySalesDetailDelta_(salesDetailID, delta) {
   if (!delta) return;
   const row = Repository_getById(DR_SD_TABLE, salesDetailID);
   if (!row) throw new Error(`Sales Detail not found: ${salesDetailID}`);
+
   const oldValue = Number(row["QTY Delivered"]) || 0;
   const newValue = oldValue + Number(delta);
   if (newValue < 0) throw new Error(`Sales Detail ${salesDetailID} would have negative delivered quantity.`);
-  console.log(JSON.stringify({diagnostic:"SALES_DETAIL_DELIVERY_DELTA", detailID:salesDetailID, oldValue, delta, newValue, QTYBalancePersisted:false}));
-  Repository_update(DR_SD_TABLE, {"Detail ID": salesDetailID, "QTY Delivered": newValue});
+
+  drLogUpdate_(DR_SD_TABLE, "Detail ID", salesDetailID, {
+    "QTY Delivered": { oldValue, delta: Number(delta), newValue },
+    "QTY Balance": { persisted: false, formula: "QTY Ordered - QTY Delivered" }
+  }, "Delivery Receipt fulfillment");
+
+  Repository_update(DR_SD_TABLE, { "Detail ID": salesDetailID, "QTY Delivered": newValue });
 }
 
 function drApplyInventoryDelta_(itemID, delta) {
   if (!delta) return;
   const row = Repository_getById(DR_INVENTORY_TABLE, itemID);
   if (!row) throw new Error(`Inventory item not found: ${itemID}`);
+
   const oldOnHand = Number(row["QTY On-Hand"]) || 0;
   const oldAllocated = Number(row["QTY Allocated"]) || 0;
   const oldDelivered = Number(row["QTY Delivered"]) || 0;
-  const newOnHand = oldOnHand - delta;
-  const newAllocated = oldAllocated - delta;
-  const newDelivered = oldDelivered + delta;
+  const newOnHand = oldOnHand - Number(delta);
+  const newAllocated = oldAllocated - Number(delta);
+  const newDelivered = oldDelivered + Number(delta);
+
   if (newOnHand < 0) throw new Error(`Inventory item ${itemID} would have negative QTY On-Hand.`);
   if (newAllocated < 0) throw new Error(`Inventory item ${itemID} would have negative QTY Allocated.`);
-  console.log(JSON.stringify({diagnostic:"INVENTORY_DELIVERY_DELTA", itemID, delta, oldOnHand, newOnHand, oldAllocated, newAllocated, oldDelivered, newDelivered, QTYAvailablePersisted:false}));
-  Repository_update(DR_INVENTORY_TABLE, {"Item ID": itemID, "QTY On-Hand":newOnHand, "QTY Allocated":newAllocated, "QTY Delivered":newDelivered});
+  if (newDelivered < 0) throw new Error(`Inventory item ${itemID} would have negative QTY Delivered.`);
+
+  drLogUpdate_(DR_INVENTORY_TABLE, "Item ID", itemID, {
+    "QTY On-Hand": { oldValue: oldOnHand, delta: -Number(delta), newValue: newOnHand },
+    "QTY Allocated": { oldValue: oldAllocated, delta: -Number(delta), newValue: newAllocated },
+    "QTY Delivered": { oldValue: oldDelivered, delta: Number(delta), newValue: newDelivered },
+    "QTY Available": { persisted: false, formula: "QTY On-Hand - QTY Allocated" }
+  }, "Delivery Receipt fulfillment");
+
+  Repository_update(DR_INVENTORY_TABLE, {
+    "Item ID": itemID,
+    "QTY On-Hand": newOnHand,
+    "QTY Allocated": newAllocated,
+    "QTY Delivered": newDelivered
+  });
 }
 
 function drAdjustCustomerDeliveries_(customerID, delta) {
   const customer = drRequireCustomer_(customerID);
+  const numericDelta = Number(delta) || 0;
   const oldValue = Number(customer[DR_CUSTOMER_TOTAL_FIELD]) || 0;
-  const newValue = oldValue + Number(delta || 0);
-  console.log(JSON.stringify({diagnostic:"CUSTOMER_DELIVERY_AGGREGATE_UPDATE", customerID, field:DR_CUSTOMER_TOTAL_FIELD, oldValue, delta:Number(delta||0), newValue}));
-  if (Number(delta || 0) !== 0) {
-    Repository_update(DR_CUSTOMER_TABLE, {"Customer ID":customerID, [DR_CUSTOMER_TOTAL_FIELD]:newValue});
+  const newValue = oldValue + numericDelta;
+
+  drLogUpdate_(DR_CUSTOMER_TABLE, "Customer ID", customerID, {
+    [DR_CUSTOMER_TOTAL_FIELD]: { oldValue, delta: numericDelta, newValue }
+  }, "Delivery Receipt aggregate");
+
+  if (numericDelta !== 0) {
+    Repository_update(DR_CUSTOMER_TABLE, {
+      "Customer ID": customerID,
+      [DR_CUSTOMER_TOTAL_FIELD]: newValue
+    });
   }
 }
 
-function drApplyIntegrationDelta_(oldRows, newRows, customerID) {
+function drApplyIntegrationDelta_(oldRows, newRows) {
   const deltaBySalesDetail = drBuildDeliveryDelta_(oldRows, newRows);
   const salesDetails = Repository_getRows(DR_SD_TABLE);
   const byDetail = {};
+  const inventoryDelta = {};
+
   salesDetails.forEach(row => { byDetail[String(row["Detail ID"])] = row; });
 
-  const inventoryDelta = {};
   Object.keys(deltaBySalesDetail).forEach(detailID => {
+    const delta = Number(deltaBySalesDetail[detailID]) || 0;
     const source = byDetail[detailID];
     if (!source) throw new Error(`Sales Detail ${detailID} not found while applying delivery delta.`);
-    drApplySalesDetailDelta_(detailID, deltaBySalesDetail[detailID]);
+
+    drApplySalesDetailDelta_(detailID, delta);
+
     const itemID = String(source["Item ID"] || "").trim();
     if (!itemID) throw new Error(`Sales Detail ${detailID} has no Item ID.`);
-    inventoryDelta[itemID] = (Number(inventoryDelta[itemID]) || 0) + deltaBySalesDetail[detailID];
+    inventoryDelta[itemID] = (Number(inventoryDelta[itemID]) || 0) + delta;
   });
-  Object.keys(inventoryDelta).forEach(itemID => drApplyInventoryDelta_(itemID, inventoryDelta[itemID]));
-  return {salesDetailDelta:deltaBySalesDetail, inventoryDelta};
+
+  Object.keys(inventoryDelta).forEach(itemID => {
+    drApplyInventoryDelta_(itemID, inventoryDelta[itemID]);
+  });
+
+  return { salesDetailDelta: deltaBySalesDetail, inventoryDelta };
 }
 
 function drUpdateSOStatus_(soID) {
+  const row = drRequireSalesOrder_(soID);
+  const oldStatus = String(row["SO Status"] || "Open").trim() || "Open";
   const status = drCalculateStatus_(soID);
-  Repository_update(DR_SO_TABLE, {"SO ID":soID, "SO Status":status});
-  console.log(JSON.stringify({diagnostic:"SO_FULFILLMENT_STATUS_UPDATE", soID, newStatus:status}));
+
+  if (oldStatus !== status) {
+    drLogUpdate_(DR_SO_TABLE, "SO ID", soID, {
+      "SO Status": { oldValue: oldStatus, delta: null, newValue: status }
+    }, "Delivery Receipt fulfillment status");
+
+    Repository_update(DR_SO_TABLE, { "SO ID": soID, "SO Status": status });
+  }
+
   return status;
 }
 
@@ -295,54 +353,53 @@ function drUpdateSOStatus_(soID) {
 function drBuildDocument_(master, lines, persistedByID, drID, customer, so) {
   const drDate = master["DR Date"] || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
   const sourceDetails = {};
+
   lines.forEach(line => {
-    const source = persistedByID[String(line["Sales Detail ID"])];
-    if (source) sourceDetails[String(line["Sales Detail ID"])] = source;
+    const id = String(line["Sales Detail ID"] || "");
+    const source = persistedByID[id];
+    if (source) sourceDetails[id] = source;
   });
 
-  const amount = drCalculateAmount_(so, sourceDetails, lines, drID);
+  const amount = drCalculateAmount_(sourceDetails, lines);
+
   const header = {
-    "DR Date":drDate,
-    "DR ID":drID,
-    "Customer ID":String(master["Customer ID"] || ""),
-    "Customer Name":customer["Customer Name"] || "",
-    "State":customer["State"] || "",
-    "City":customer["City"] || "",
-    "SO ID":String(master["SO ID"] || ""),
-    "Invoice Num":master["Invoice Num"] || so["Invoice Num"] || "",
-    "DR Amount":amount
+    "DR Date": drDate,
+    "DR ID": drID,
+    "Customer ID": String(master["Customer ID"] || ""),
+    "Customer Name": customer["Customer Name"] || "",
+    "State": customer["State"] || "",
+    "City": customer["City"] || "",
+    "SO ID": String(master["SO ID"] || ""),
+    "Invoice Num": master["Invoice Num"] || so["Invoice Num"] || "",
+    "DR Amount": amount
   };
 
   const details = lines.map((line, index) => {
     const source = persistedByID[String(line["Sales Detail ID"])];
     return {
-      "DR Date":drDate,
-      "DR ID":drID,
-      "Customer ID":header["Customer ID"],
-      "Customer Name":header["Customer Name"],
-      "State":header["State"],
-      "City":header["City"],
-      "SO ID":header["SO ID"],
-      "Invoice Num":header["Invoice Num"],
-      "SO DR Detail ID":line["SO DR Detail ID"] || `${drID}-${String(index+1).padStart(2,"0")}`,
-      "Sales Detail ID":source["Detail ID"],
-      "Item ID":source["Item ID"],
-      "Item Name":source["Item Name"],
-      "QTY Ordered":Number(source["QTY Ordered"]) || 0,
-      "QTY Delivered":Number(line["QTY Delivered"]) || 0,
-      "QTY Balance":Number(source["QTY Balance"]) || 0
+      "DR Date": drDate,
+      "DR ID": drID,
+      "Customer ID": header["Customer ID"],
+      "Customer Name": header["Customer Name"],
+      "State": header["State"],
+      "City": header["City"],
+      "SO ID": header["SO ID"],
+      "Invoice Num": header["Invoice Num"],
+      "SO DR Detail ID": line["SO DR Detail ID"] || `${drID}-${String(index + 1).padStart(2, "0")}`,
+      "Sales Detail ID": source["Detail ID"],
+      "Item ID": source["Item ID"],
+      "Item Name": source["Item Name"],
+      "QTY Ordered": Number(source["QTY Ordered"]) || 0,
+      "QTY Delivered": Number(line["QTY Delivered"]) || 0,
+      "QTY Balance": Number(source["QTY Balance"]) || 0
     };
   });
-  return {master:header, details:{[DR_DETAIL_TABLE]:details}, amount};
+
+  return { master: header, details: { [DR_DETAIL_TABLE]: details }, amount };
 }
 
 /* ============================================================
  * SAVE / EDIT
- *
- * Uses the same Document_save path as Sales Orders for both
- * insert and update. Document_save handles the header upsert
- * and detail merge. This function validates and calculates the
- * integration deltas before/after the document save.
  * ============================================================ */
 
 function drSaveDeliveryReceipt(payload) {
@@ -373,11 +430,15 @@ function drSaveDeliveryReceipt(payload) {
     if (!isEdit && String(so["SO Status"] || "Open").trim() === "Fulfilled") {
       throw new Error(`Sales Order ${soID} is already Fulfilled.`);
     }
+
     if (isEdit && String(existingHeader["SO ID"]) !== String(soID)) {
       throw new Error("Changing the Sales Order on an existing Delivery Receipt is not allowed.");
     }
 
-    const oldRows = isEdit ? Repository_getRows(DR_DETAIL_TABLE).filter(r => String(r["DR ID"]) === drID) : [];
+    const oldRows = isEdit
+      ? Repository_getRows(DR_DETAIL_TABLE).filter(r => String(r["DR ID"]) === drID)
+      : [];
+
     const persistedDetails = Repository_getRows(DR_SD_TABLE);
     const byID = {};
     persistedDetails.forEach(row => { byID[String(row["Detail ID"])] = row; });
@@ -388,6 +449,7 @@ function drSaveDeliveryReceipt(payload) {
       if (!sdID) throw new Error(`Sales Detail ID is missing at row ${index + 1}.`);
       if (seen[sdID]) throw new Error(`Duplicate Sales Detail ID ${sdID}.`);
       seen[sdID] = true;
+
       const source = byID[sdID];
       if (!source) throw new Error(`Sales Detail ${sdID} was not found.`);
       if (String(source["SO ID"]) !== soID) throw new Error(`Sales Detail ${sdID} does not belong to Sales Order ${soID}.`);
@@ -396,51 +458,78 @@ function drSaveDeliveryReceipt(payload) {
       const persistedBalance = Number(source["QTY Balance"]) || 0;
       const allowableBalance = persistedBalance + (oldForThisLine ? Number(oldForThisLine["QTY Delivered"]) || 0 : 0);
       const qty = Number(line["QTY Delivered"]);
-      if (!Number.isFinite(qty) || qty <= 0) throw new Error(`Invalid delivery quantity for ${sdID}. Quantity must be greater than zero.`);
-      if (qty > allowableBalance) throw new Error(`Invalid delivery quantity for ${sdID}. Maximum deliverable quantity is ${allowableBalance}.`);
-      return Object.assign({}, line, {"Sales Detail ID":sdID, "QTY Delivered":qty});
+
+      if (!Number.isFinite(qty) || qty <= 0) {
+        throw new Error(`Invalid delivery quantity for ${sdID}. Quantity must be greater than zero.`);
+      }
+      if (qty > allowableBalance) {
+        throw new Error(`Invalid delivery quantity for ${sdID}. Maximum deliverable quantity is ${allowableBalance}.`);
+      }
+
+      return Object.assign({}, line, { "Sales Detail ID": sdID, "QTY Delivered": qty });
     });
 
     const documentPayload = drBuildDocument_(master, validated, byID, drID, customer, so);
-
-    // Preflight the integration delta before Document_save.
     const deliveryDelta = drBuildDeliveryDelta_(oldRows, validated);
+    const inventoryDelta = {};
+
     Object.keys(deliveryDelta).forEach(sdID => {
+      const delta = Number(deliveryDelta[sdID]) || 0;
       const source = byID[sdID];
-      const resultingDelivered = (Number(source["QTY Delivered"]) || 0) + deliveryDelta[sdID];
+      if (!source) throw new Error(`Sales Detail ${sdID} not found while validating delivery delta.`);
+
+      const resultingDelivered = (Number(source["QTY Delivered"]) || 0) + delta;
       if (resultingDelivered < 0) throw new Error(`Sales Detail ${sdID} would have negative delivered quantity.`);
+
       const itemID = String(source["Item ID"] || "").trim();
-      const inventory = Repository_getById(DR_INVENTORY_TABLE, itemID);
-      if (!inventory) throw new Error(`Inventory item not found: ${itemID}`);
-      if ((Number(inventory["QTY On-Hand"]) || 0) - deliveryDelta[sdID] < 0) {
-        throw new Error(`Inventory item ${itemID} does not have enough on-hand quantity for this delivery.`);
-      }
-      if ((Number(inventory["QTY Allocated"]) || 0) - deliveryDelta[sdID] < 0) {
-        throw new Error(`Inventory item ${itemID} does not have enough allocated quantity to release.`);
-      }
+      if (!itemID) throw new Error(`Sales Detail ${sdID} has no Item ID.`);
+      inventoryDelta[itemID] = (Number(inventoryDelta[itemID]) || 0) + delta;
     });
 
-    // Same document engine save used by Sales Orders.
+    Object.keys(inventoryDelta).forEach(itemID => {
+      const inventory = Repository_getById(DR_INVENTORY_TABLE, itemID);
+      if (!inventory) throw new Error(`Inventory item not found: ${itemID}`);
+
+      const resultingOnHand = (Number(inventory["QTY On-Hand"]) || 0) - inventoryDelta[itemID];
+      const resultingAllocated = (Number(inventory["QTY Allocated"]) || 0) - inventoryDelta[itemID];
+      const resultingDelivered = (Number(inventory["QTY Delivered"]) || 0) + inventoryDelta[itemID];
+
+      if (resultingOnHand < 0) throw new Error(`Inventory item ${itemID} does not have enough on-hand quantity for this delivery.`);
+      if (resultingAllocated < 0) throw new Error(`Inventory item ${itemID} does not have enough allocated quantity to release.`);
+      if (resultingDelivered < 0) throw new Error(`Inventory item ${itemID} would have negative delivered quantity.`);
+    });
+
+    // Same Document Engine save used by Sales Orders for both insert and update.
     const documentResult = Document_save("DeliveryReceipt", documentPayload);
 
-    const integration = drApplyIntegrationDelta_(oldRows, validated, customerID);
-
+    const integration = drApplyIntegrationDelta_(oldRows, validated);
     const oldAmount = isEdit ? Number(existingHeader["DR Amount"]) || 0 : 0;
     const newAmount = Number(documentPayload.master["DR Amount"]) || 0;
-    drAdjustCustomerDeliveries_(customerID, newAmount - oldAmount);
 
+    drAdjustCustomerDeliveries_(customerID, newAmount - oldAmount);
     const status = drUpdateSOStatus_(soID);
 
-    console.log(JSON.stringify({diagnostic:"DELIVERY_RECEIPT_SAVE", action:isEdit?"updated":"inserted", drID, soID, customerID, oldAmount, newAmount, status}));
+    console.log(JSON.stringify({
+      diagnostic: "DELIVERY_RECEIPT_SAVE",
+      action: isEdit ? "updated" : "inserted",
+      drID,
+      soID,
+      customerID,
+      oldAmount,
+      newAmount,
+      deliveryDelta,
+      inventoryDelta,
+      soStatus: status
+    }));
 
     return {
-      success:true,
-      action:isEdit?"updated":"inserted",
+      success: true,
+      action: isEdit ? "updated" : "inserted",
       drID,
-      drAmount:newAmount,
+      drAmount: newAmount,
       soID,
-      soStatus:status,
-      document:documentResult,
+      soStatus: status,
+      document: documentResult,
       integration
     };
   } finally {
@@ -454,11 +543,14 @@ function drSaveDeliveryReceipt(payload) {
 
 function drDeleteDeliveryReceipt(drID) {
   if (!drID) throw new Error("Delivery Receipt ID is required.");
+
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) throw new Error("Could not acquire transaction lock.");
+
   try {
     const header = Repository_getById(DR_HEADER_TABLE, drID);
     if (!header) throw new Error(`Delivery Receipt not found: ${drID}`);
+
     const oldRows = Repository_getRows(DR_DETAIL_TABLE).filter(r => String(r["DR ID"]) === String(drID));
     if (!oldRows.length) throw new Error(`Delivery Receipt ${drID} has no detail rows.`);
 
@@ -468,24 +560,50 @@ function drDeleteDeliveryReceipt(drID) {
     const byID = {};
     persistedDetails.forEach(row => { byID[String(row["Detail ID"])] = row; });
 
-    // Preflight reversal.
     const delta = drBuildDeliveryDelta_(oldRows, []);
+    const inventoryDelta = {};
+
     Object.keys(delta).forEach(sdID => {
       const source = byID[sdID];
       if (!source) throw new Error(`Sales Detail ${sdID} not found while deleting ${drID}.`);
+
       const itemID = String(source["Item ID"] || "").trim();
+      if (!itemID) throw new Error(`Sales Detail ${sdID} has no Item ID.`);
+      inventoryDelta[itemID] = (Number(inventoryDelta[itemID]) || 0) + Number(delta[sdID]);
+    });
+
+    Object.keys(inventoryDelta).forEach(itemID => {
       const inventory = Repository_getById(DR_INVENTORY_TABLE, itemID);
       if (!inventory) throw new Error(`Inventory item not found: ${itemID}`);
-      if ((Number(inventory["QTY Delivered"]) || 0) + delta[sdID] < 0) throw new Error(`Inventory delivered quantity cannot become negative for ${itemID}.`);
+      const resultingDelivered = (Number(inventory["QTY Delivered"]) || 0) + inventoryDelta[itemID];
+      if (resultingDelivered < 0) throw new Error(`Inventory delivered quantity cannot become negative for ${itemID}.`);
     });
 
     const result = Document_delete("DeliveryReceipt", drID);
-    drApplyIntegrationDelta_(oldRows, [], customerID);
+    const integration = drApplyIntegrationDelta_(oldRows, []);
+
     drAdjustCustomerDeliveries_(customerID, -(Number(header["DR Amount"]) || 0));
     const status = drUpdateSOStatus_(soID);
 
-    console.log(JSON.stringify({diagnostic:"DELIVERY_RECEIPT_DELETE", drID, soID, customerID, status}));
-    return {success:true, action:"deleted", drID, soID, soStatus:status, document:result};
+    console.log(JSON.stringify({
+      diagnostic: "DELIVERY_RECEIPT_DELETE",
+      drID,
+      soID,
+      customerID,
+      deliveryDelta: delta,
+      inventoryDelta,
+      soStatus: status
+    }));
+
+    return {
+      success: true,
+      action: "deleted",
+      drID,
+      soID,
+      soStatus: status,
+      document: result,
+      integration
+    };
   } finally {
     lock.releaseLock();
   }
