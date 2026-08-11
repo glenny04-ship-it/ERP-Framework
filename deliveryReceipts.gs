@@ -16,6 +16,7 @@ const DR_SD_TABLE = "SalesDetails";
 const DR_CUSTOMER_TABLE = "Customers";
 const DR_INVENTORY_TABLE = "Inventory";
 const DR_CUSTOMER_TOTAL_FIELD = "Total Deliveries";
+const DR_DEFAULT_STATUS = "Open";
 
 /* ============================================================
  * READ APIs
@@ -371,11 +372,13 @@ function drBuildDocument_(master, lines, persistedByID, drID, customer, so) {
     "City": customer["City"] || "",
     "SO ID": String(master["SO ID"] || ""),
     "Invoice Num": master["Invoice Num"] || so["Invoice Num"] || "",
+    "DR Status": String(master["DR Status"] || DR_DEFAULT_STATUS),
     "DR Amount": amount
   };
 
   const details = lines.map((line, index) => {
-    const source = persistedByID[String(line["Sales Detail ID"])];
+    const source = persistedByID[String(line["Sales Detail ID"])]
+      ;
     return {
       "DR Date": drDate,
       "DR ID": drID,
@@ -426,6 +429,12 @@ function drSaveDeliveryReceipt(payload) {
     const drID = String(master["DR ID"] || "").trim() || drGenerateDRID();
     const existingHeader = Repository_getById(DR_HEADER_TABLE, drID);
     const isEdit = !!existingHeader;
+
+    // DR Status is system-controlled. A new DR always starts Open;
+    // an existing DR preserves its persisted status.
+    master["DR Status"] = isEdit
+      ? String(existingHeader["DR Status"] || DR_DEFAULT_STATUS)
+      : DR_DEFAULT_STATUS;
 
     if (!isEdit && String(so["SO Status"] || "Open").trim() === "Fulfilled") {
       throw new Error(`Sales Order ${soID} is already Fulfilled.`);
@@ -499,9 +508,7 @@ function drSaveDeliveryReceipt(payload) {
       if (resultingDelivered < 0) throw new Error(`Inventory item ${itemID} would have negative delivered quantity.`);
     });
 
-    // Same Document Engine save used by Sales Orders for both insert and update.
     const documentResult = Document_save("DeliveryReceipt", documentPayload);
-
     const integration = drApplyIntegrationDelta_(oldRows, validated);
     const oldAmount = isEdit ? Number(existingHeader["DR Amount"]) || 0 : 0;
     const newAmount = Number(documentPayload.master["DR Amount"]) || 0;
@@ -515,6 +522,7 @@ function drSaveDeliveryReceipt(payload) {
       drID,
       soID,
       customerID,
+      drStatus: documentPayload.master["DR Status"],
       oldAmount,
       newAmount,
       deliveryDelta,
@@ -526,6 +534,7 @@ function drSaveDeliveryReceipt(payload) {
       success: true,
       action: isEdit ? "updated" : "inserted",
       drID,
+      drStatus: documentPayload.master["DR Status"],
       drAmount: newAmount,
       soID,
       soStatus: status,
@@ -590,6 +599,7 @@ function drDeleteDeliveryReceipt(drID) {
       drID,
       soID,
       customerID,
+      drStatus: header["DR Status"] || DR_DEFAULT_STATUS,
       deliveryDelta: delta,
       inventoryDelta,
       soStatus: status
