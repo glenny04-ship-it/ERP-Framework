@@ -12,109 +12,299 @@
 const DATA_REPAIR_DEFAULT_BATCH_SIZE = 250;
 
 function ERP_RecomputeSalesOrdersBatch(startIndex, batchSize) {
+
   startIndex = _repairNormalizeStartIndex_(startIndex);
   batchSize = _repairNormalizeBatchSize_(batchSize);
+
   const lock = _repairAcquireLock_();
+
   try {
+
     const orders = Repository_getRows("SalesOrders");
     const details = Repository_getRows("SalesDetails");
+
     const totalsBySO = {};
     const qtyBySO = {};
+
     details.forEach(row => {
-      const soID = String(row["SO ID"] || "").trim();
+
+      const soID =
+        String(row["SO ID"] || "").trim();
+
       if (!soID) return;
-      totalsBySO[soID] = (totalsBySO[soID] || 0) + (Number(row["Total Sales Price"]) || 0);
-      if (!qtyBySO[soID]) qtyBySO[soID] = { ordered: 0, delivered: 0 };
-      qtyBySO[soID].ordered += Number(row["QTY Ordered"]) || 0;
-      qtyBySO[soID].delivered += Number(row["QTY Delivered"]) || 0;
+
+      totalsBySO[soID] =
+        (totalsBySO[soID] || 0) +
+        (Number(row["Total Sales Price"]) || 0);
+
+      if (!qtyBySO[soID]) {
+        qtyBySO[soID] = {
+          ordered: 0,
+          delivered: 0
+        };
+      }
+
+      qtyBySO[soID].ordered +=
+        Number(row["QTY Ordered"]) || 0;
+
+      qtyBySO[soID].delivered +=
+        Number(row["QTY Delivered"]) || 0;
+
     });
-    const endIndex = Math.min(startIndex + batchSize, orders.length);
-    const batch = orders.slice(startIndex, endIndex);
+
+    const endIndex =
+      Math.min(
+        startIndex + batchSize,
+        orders.length
+      );
+
+    const batch =
+      orders.slice(startIndex, endIndex);
+
+    // --------------------------------------------------
+    // IMPORTANT:
+    // Build a sparse repair record.
+    // Only fields owned by this repair are included.
+    // --------------------------------------------------
+
     const updated = batch.map(row => {
-      const soID = String(row["SO ID"] || "").trim();
-      const totals = qtyBySO[soID] || { ordered: 0, delivered: 0 };
-      row["Total SO Amount"] = totalsBySO[soID] || 0;
-      row["SO Status"] = _repairCalculateSOStatus_(totals.ordered, totals.delivered);
-      return row;
+
+      const soID =
+        String(row["SO ID"] || "").trim();
+
+      const totals =
+        qtyBySO[soID] || {
+          ordered: 0,
+          delivered: 0
+        };
+
+      return {
+        "SO ID": soID,
+        "Total SO Amount":
+          totalsBySO[soID] || 0,
+        "SO Status":
+          _repairCalculateSOStatus_(
+            totals.ordered,
+            totals.delivered
+          )
+      };
+
     });
-    _repairWriteRowsByPrimaryKey_("SalesOrders", updated);
-    return _repairBatchResult_("SalesOrders", startIndex, batchSize, orders.length, updated.length);
-  } finally { lock.releaseLock(); }
+
+    _repairWriteRowsByPrimaryKey_(
+      "SalesOrders",
+      updated
+    );
+
+    return _repairBatchResult_(
+      "SalesOrders",
+      startIndex,
+      batchSize,
+      orders.length,
+      updated.length
+    );
+
+  } finally {
+
+    lock.releaseLock();
+
+  }
 }
 
 function ERP_RecomputeInventoryBatch(startIndex, batchSize) {
+
   startIndex = _repairNormalizeStartIndex_(startIndex);
   batchSize = _repairNormalizeBatchSize_(batchSize);
+
   const lock = _repairAcquireLock_();
+
   try {
-    const inventory = Repository_getRows("Inventory");
-    const details = Repository_getRows("SalesDetails");
+
+    const inventory =
+      Repository_getRows("Inventory");
+
+    const details =
+      Repository_getRows("SalesDetails");
+
     const allocationByItem = {};
     const deliveredByItem = {};
+
     details.forEach(row => {
-      const itemID = String(row["Item ID"] || "").trim();
+
+      const itemID =
+        String(row["Item ID"] || "").trim();
+
       if (!itemID) return;
-      const ordered = Number(row["QTY Ordered"]) || 0;
-      const delivered = Number(row["QTY Delivered"]) || 0;
-      allocationByItem[itemID] = (allocationByItem[itemID] || 0) + (ordered - delivered);
-      deliveredByItem[itemID] = (deliveredByItem[itemID] || 0) + delivered;
+
+      const ordered =
+        Number(row["QTY Ordered"]) || 0;
+
+      const delivered =
+        Number(row["QTY Delivered"]) || 0;
+
+      allocationByItem[itemID] =
+        (allocationByItem[itemID] || 0) +
+        (ordered - delivered);
+
+      deliveredByItem[itemID] =
+        (deliveredByItem[itemID] || 0) +
+        delivered;
+
     });
-    const endIndex = Math.min(startIndex + batchSize, inventory.length);
-    const batch = inventory.slice(startIndex, endIndex);
+
+    const endIndex =
+      Math.min(
+        startIndex + batchSize,
+        inventory.length
+      );
+
+    const batch =
+      inventory.slice(startIndex, endIndex);
+
+    // --------------------------------------------------
+    // IMPORTANT:
+    // Do NOT return the complete Inventory row.
+    //
+    // QTY Available is intentionally excluded because
+    // it is a Google Sheets formula field.
+    // --------------------------------------------------
+
     const updated = batch.map(row => {
-      const itemID = String(row["Item ID"] || "").trim();
-      const onHand = Number(row["QTY On-Hand"]) || 0;
-      const allocated = allocationByItem[itemID] || 0;
-      row["QTY Allocated"] = allocated;
-      row["QTY Delivered"] = deliveredByItem[itemID] || 0;
-      return row;
+
+      const itemID =
+        String(row["Item ID"] || "").trim();
+
+      return {
+        "Item ID": itemID,
+        "QTY Allocated":
+          allocationByItem[itemID] || 0,
+        "QTY Delivered":
+          deliveredByItem[itemID] || 0
+      };
+
     });
-    _repairWriteRowsByPrimaryKey_("Inventory", updated);
-    return _repairBatchResult_("Inventory", startIndex, batchSize, inventory.length, updated.length);
-  } finally { lock.releaseLock(); }
+
+    _repairWriteRowsByPrimaryKey_(
+      "Inventory",
+      updated
+    );
+
+    return _repairBatchResult_(
+      "Inventory",
+      startIndex,
+      batchSize,
+      inventory.length,
+      updated.length
+    );
+
+  } finally {
+
+    lock.releaseLock();
+
+  }
 }
 
 function ERP_RecomputeCustomersBatch(startIndex, batchSize) {
+
   startIndex = _repairNormalizeStartIndex_(startIndex);
   batchSize = _repairNormalizeBatchSize_(batchSize);
+
   const lock = _repairAcquireLock_();
+
   try {
-    const customers = Repository_getRows("Customers");
-    const orders = Repository_getRows("SalesOrders");
+
+    const customers =
+      Repository_getRows("Customers");
+
+    const orders =
+      Repository_getRows("SalesOrders");
 
     // Receipts currently has a repository primary-key mismatch:
     // the live schema uses Trx ID while the repository configuration
     // still expects Receipt ID. Customer repair only needs the receipt
     // data, so read the sheet directly and do not depend on that stale PK.
-    const receipts = _repairReadTableRowsWithoutPK_("Receipts");
+    const receipts =
+      _repairReadTableRowsWithoutPK_("Receipts");
 
     const ordersByCustomer = {};
     const receiptsByCustomer = {};
+
     orders.forEach(row => {
-      const customerID = String(row["Customer ID"] || "").trim();
+
+      const customerID =
+        String(row["Customer ID"] || "").trim();
+
       if (!customerID) return;
-      ordersByCustomer[customerID] = (ordersByCustomer[customerID] || 0) + (Number(row["Total SO Amount"]) || 0);
-    });
-    receipts.forEach(row => {
-      const customerID = String(row["Customer ID"] || "").trim();
-      if (!customerID) return;
-      receiptsByCustomer[customerID] = (receiptsByCustomer[customerID] || 0) + (Number(row["Amount Received"]) || 0);
+
+      ordersByCustomer[customerID] =
+        (ordersByCustomer[customerID] || 0) +
+        (Number(row["Total SO Amount"]) || 0);
+
     });
 
-    const endIndex = Math.min(startIndex + batchSize, customers.length);
-    const batch = customers.slice(startIndex, endIndex);
-    const updated = batch.map(row => {
-      const customerID = String(row["Customer ID"] || "").trim();
-      const totalOrders = ordersByCustomer[customerID] || 0;
-      const totalReceipts = receiptsByCustomer[customerID] || 0;
-      const totalSales = Number(row["Total Sales"]) || 0;
-      row["Total Orders"] = totalOrders;
-      row["Total Receipts"] = totalReceipts;
-      return row;
+    receipts.forEach(row => {
+
+      const customerID =
+        String(row["Customer ID"] || "").trim();
+
+      if (!customerID) return;
+
+      receiptsByCustomer[customerID] =
+        (receiptsByCustomer[customerID] || 0) +
+        (Number(row["Amount Received"]) || 0);
+
     });
-    _repairWriteRowsByPrimaryKey_("Customers", updated);
-    return _repairBatchResult_("Customers", startIndex, batchSize, customers.length, updated.length);
-  } finally { lock.releaseLock(); }
+
+    const endIndex =
+      Math.min(
+        startIndex + batchSize,
+        customers.length
+      );
+
+    const batch =
+      customers.slice(startIndex, endIndex);
+
+    // --------------------------------------------------
+    // IMPORTANT:
+    // Only write fields owned by Customer repair.
+    //
+    // Balance Receivable is intentionally excluded
+    // because it is a Google Sheets formula field.
+    // --------------------------------------------------
+
+    const updated = batch.map(row => {
+
+      const customerID =
+        String(row["Customer ID"] || "").trim();
+
+      return {
+        "Customer ID": customerID,
+        "Total Orders":
+          ordersByCustomer[customerID] || 0,
+        "Total Receipts":
+          receiptsByCustomer[customerID] || 0
+      };
+
+    });
+
+    _repairWriteRowsByPrimaryKey_(
+      "Customers",
+      updated
+    );
+
+    return _repairBatchResult_(
+      "Customers",
+      startIndex,
+      batchSize,
+      customers.length,
+      updated.length
+    );
+
+  } finally {
+
+    lock.releaseLock();
+
+  }
 }
 
 function ERP_RecomputePhase1(batchSize) {
