@@ -34,7 +34,7 @@
 <div id="drModalOverlay" class="modal-overlay"><div class="modal"><div class="modal-header"><h2 id="drModalTitle">New Delivery Receipt</h2></div><div id="drModalBody"></div><div id="drModalFooter" class="modal-footer"></div></div></div>
 <script>
   // Backend edit capability remains available, but the operational UI is View/Delete only.
-  const DR_EDIT_ENABLED = false;
+  const DR_EDIT_ENABLED = true;
   let drAllData=[];let drCustomers=[];let drCurrent=null;let drMode='new';let drSourceDetails=[];
 
   const esc=v=>{if(v===null||v===undefined)return '';return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')};
@@ -222,20 +222,140 @@
     google.script.run.withSuccessHandler(result=>{showProcessing(false);closeModal();drRefresh();alert(`Delivery Receipt ${result.drID} saved successfully.`)}).withFailureHandler(alertError).drSaveDeliveryReceipt(payload)
   }
 
-  function drView(id){
-    showProcessing(true);
-    google.script.run.withSuccessHandler(doc=>{
-      drMode='view';
-      drCurrent=doc;
-      google.script.run.withSuccessHandler(c=>{
-        drCustomers=c||[];
-        drRenderModal();
-        drRenderDetails();
-        showProcessing(false);
-        openModal();
-      }).withFailureHandler(alertError).drGetCustomers()
-    }).withFailureHandler(alertError).drGetDeliveryReceipt(id)
+  function drView(id) {
+  console.log("DR_VIEW_CLICK_ID: " + id);
+
+  if (!id) {
+    alert("Delivery Receipt ID is required.");
+    return;
   }
+
+  showProcessing(true);
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+
+      console.log(
+        "DR_VIEW_RAW_RESPONSE: " +
+        JSON.stringify(result)
+      );
+
+      console.log(
+        "DR_VIEW_RESULT_TYPE: " +
+        typeof result
+      );
+
+      console.log(
+        "DR_VIEW_HAS_HEADER: " +
+        !!(result && result.header)
+      );
+
+      console.log(
+        "DR_VIEW_HAS_DETAILS: " +
+        !!(result && result.details)
+      );
+
+      showProcessing(false);
+
+      if (!result) {
+        alert("Backend returned no result.");
+        return;
+      }
+
+      if (!result.header) {
+        alert(
+          "Backend returned a result, but no Delivery Receipt header was found.\n\n" +
+          JSON.stringify(result)
+        );
+        return;
+      }
+
+      drMode = "view";
+
+      drCurrent = {
+        header: result.header,
+        details: Array.isArray(result.details)
+          ? result.details
+          : []
+      };
+
+      drCustomers = [];
+
+      google.script.run
+        .withSuccessHandler(function(customers) {
+
+          drCustomers = customers || [];
+
+          drRenderModal();
+
+          /*
+           * IMPORTANT:
+           * Render the persisted Delivery Details directly.
+           */
+          drRenderViewDetails(drCurrent.details);
+
+          openModal();
+
+        })
+        .withFailureHandler(alertError)
+        .drGetCustomers();
+
+    })
+    .withFailureHandler(function(error) {
+
+      console.error(
+        "DR_VIEW_BACKEND_ERROR: " +
+        JSON.stringify(error)
+      );
+
+      showProcessing(false);
+      alertError(error);
+
+    })
+    .drGetDeliveryReceipt(String(id));
+}
+
+function drRenderViewDetails(details) {
+  const body = document.querySelector('#drDetailsTable tbody');
+
+  if (!body) {
+    console.error('DR_VIEW_DETAILS_TABLE_NOT_FOUND');
+    return;
+  }
+
+  body.innerHTML = '';
+
+  if (!Array.isArray(details) || details.length === 0) {
+    body.innerHTML =
+      '<tr><td colspan="6" class="empty">No Delivery Details found for this receipt.</td></tr>';
+
+    console.log('DR_VIEW_DETAILS_EMPTY');
+    return;
+  }
+
+  console.log('DR_VIEW_RENDERING_DETAILS', details);
+
+  details.forEach(function(detail) {
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${esc(detail['Sales Detail ID'])}</td>
+      <td>${esc(detail['Item ID'])}</td>
+      <td>${esc(detail['Item Name'])}</td>
+      <td>${num(detail['QTY Ordered'])}</td>
+      <td class="qty-balance">${num(detail['QTY Balance'])}</td>
+      <td>${num(detail['QTY Delivered'])}</td>
+    `;
+
+    body.appendChild(tr);
+  });
+
+  console.log(
+    'DR_VIEW_DETAILS_RENDERED',
+    body.querySelectorAll('tr').length
+  );
+}
 
   // Retained for future re-enablement. The operational UI currently does not expose Edit.
   function drEdit(id){
