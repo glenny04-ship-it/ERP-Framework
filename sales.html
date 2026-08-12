@@ -868,8 +868,8 @@ function newSOFormBody() {
                 <th contenteditable="false">QTY Delivered</th>
                 <th contenteditable="false">QTY Balance</th>
                 <th>Unit Price</th>
-                <th>Price Excl Tax</th><th>Tax Rate</th><th>Total Tax</th>
-                <th>Price Incl Tax</th><th>Shipping Fees</th><th>Total Sales Price</th>
+                <th>Amount Excl Tax</th><th>Tax Rate</th><th>Total Tax</th>
+                <th>Amount Incl Tax</th><th>Shipping Fees</th><th>Total Sales Amount</th>
                 <th>Remove</th>
               </tr>
             </thead>
@@ -969,16 +969,16 @@ if (existingRow) {
       <td class="soItemType" style="display:none"></td>
       <td class="soItemCat" style="display:none"></td>
       <td class="soItemSubcat style="display:none""></td>
-      <td><input type="number" class="soQty" min="1" value="1" style="width: 60px;"></td>
-      <td><input type="number" class="soDelQty" value="0" readonly style="width: 60px;"></td>
-      <td><input type="number" class="soBalQty" value="0" readonly style="width: 60px;"></td>
-      <td><input type="number" class="soUnitPrice" step="0.01" value="0.00" style="width: 100px;"></td>
-      <td class="soPriceExcl" style="width: 60px;">0.00</td>
-      <td><input type="number" class="soTaxRate" step="0.01" value="0.00" style="width: 60px;"></td>
+      <td><input type="number" class="soQty" min="1" value="1" style="width: 80px;"></td>
+      <td><input type="number" class="soDelQty" value="0" readonly style="width: 80px;"></td>
+      <td><input type="number" class="soBalQty" value="0" readonly style="width: 80px;"></td>
+      <td><input type="number" class="soUnitPrice" step="0.5" value="0.00" style="width: 100px;"></td>
+      <td class="soAmountExcl" style="width: 60px;">0.00</td>
+      <td><input type="number" class="soTaxRate" step="0.5" value="0.00" style="width: 80px;"></td>
       <td class="soTotalTax" style="width: 60px;">0.00</td>
-      <td class="soPriceIncl" style="width: 60px;">0.00</td>
-      <td><input type="number" class="soShipFees" step="0.01" value="0.00" style="width: 60px;"></td>
-      <td class="soTotalSales" style="width: 60px;">0.00</td>
+      <td class="soAmountIncl" style="width: 60px;">0.00</td>
+      <td><input type="number" class="soShipFees" step="0.5" value="0.00" style="width: 80px;"></td>
+      <td class="soTotalSales" style="width: 90px;">0.00</td>
       <td><span class="remove-row" onclick="removeSOLine(this)">×</span></td>
 
     `;
@@ -1052,19 +1052,19 @@ function recalcLine(tr) {
   const shipping =
     Number(tr.querySelector('.soShipFees').value) || 0;
 
-  const priceExcl = qty * unitPrice;
-  const totalTax = priceExcl * taxRate / 100;
-  const priceIncl = priceExcl + totalTax;
-  const totalSales = priceIncl + shipping;
+  const amountExcl = qty * unitPrice;
+  const totalTax = amountExcl * taxRate / 100;
+  const amountIncl = amountExcl + totalTax;
+  const totalSales = amountIncl + shipping;
 
-  tr.querySelector('.soPriceExcl').innerText =
-    priceExcl.toFixed(2);
+  tr.querySelector('.soAmountExcl').innerText =
+    amountExcl.toFixed(2);
 
   tr.querySelector('.soTotalTax').innerText =
     totalTax.toFixed(2);
 
-  tr.querySelector('.soPriceIncl').innerText =
-    priceIncl.toFixed(2);
+  tr.querySelector('.soAmountIncl').innerText =
+    amountIncl.toFixed(2);
 
   tr.querySelector('.soTotalSales').innerText =
     totalSales.toFixed(2);
@@ -1169,12 +1169,12 @@ function buildSODTO() {
         "QTY Delivered": Number(tr.querySelector(".soDelQty").value),
         "QTY Balance": Number(tr.querySelector(".soBalQty").value),
         "Unit Price": Number(tr.querySelector(".soUnitPrice").value),
-        "Price Excl Tax": Number(tr.querySelector(".soPriceExcl").innerText),
+        "Amount Excl Tax": Number(tr.querySelector(".soAmountExcl").innerText),
         "Tax Rate": Number(tr.querySelector(".soTaxRate").value),
         "Total Tax": Number(tr.querySelector(".soTotalTax").innerText),
-        "Price Incl Tax": Number(tr.querySelector(".soPriceIncl").innerText),
+        "Amount Incl Tax": Number(tr.querySelector(".soAmountIncl").innerText),
         "Shipping Fees": Number(tr.querySelector(".soShipFees").value),
-        "Total Sales Price": Number(tr.querySelector(".soTotalSales").innerText)
+        "Total Sales Amount": Number(tr.querySelector(".soTotalSales").innerText)
       });
 
     });
