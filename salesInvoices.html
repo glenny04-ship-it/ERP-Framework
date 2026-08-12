@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Sales Invoices</title>
+  <link href="https://fonts.googleapis.com/css?family=Poppins:400,600|Roboto:400,500|Montserrat:400,500" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <style>
+    :root {
+      --brand-burgundy: #78141D;
+      --brand-burgundy-dark: #4A080E;
+      --brand-burgundy-light: #941B26;
+      --brand-gold: #E5C058;
+      --brand-gold-bright: #FBE6A3;
+      --brand-gold-dark: #B58A2B;
+      --brand-cream: #FAF6EE;
+      --text-dark: #2C1810;
+      --text-muted: #6B5B52;
+      --border-color: #E8DCCB;
+    }
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: var(--brand-cream);
+      color: var(--text-dark);
+    }
+    h1, h2 { margin: 0; }
+    .container { padding: 24px; }
+    .flex { display: flex; align-items: center; }
+    .flex-space { justify-content: space-between; }
+    #siHeader { margin-bottom: 20px; }
+    #siHeader h1 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--brand-burgundy-dark);
+    }
+    #siHeader h2 {
+      font-size: .95rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    button, .btn {
+      background: linear-gradient(180deg, var(--brand-burgundy-light) 0%, var(--brand-burgundy) 100%);
+      color: var(--brand-gold-bright);
+      border: 1px solid var(--brand-gold-dark);
+      padding: 9px 16px;
+      margin: 0 2px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Poppins', sans-serif;
+      font-size: .9rem;
+      font-weight: 500;
+      transition: all .25s ease;
+      box-shadow: 0 2px 5px rgba(120,20,29,.15);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:hover, .btn:hover {
+      background: var(--brand-burgundy-dark);
+      color: #fff;
+      border-color: var(--brand-gold);
+      transform: translateY(-1px);
+    }
+    .btn-clear {
+      background: #fff;
+      color: var(--brand-burgundy);
+      border: 1px solid var(--border-color);
+      box-shadow: none;
+    }
+    .btn-clear:hover {
+      background: var(--brand-cream);
+      color: var(--brand-burgundy-dark);
+      border-color: var(--brand-burgundy-light);
+    }
+    input, select {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      font-size: .9rem;
+      font-family: 'Poppins', sans-serif;
+      color: var(--text-dark);
+      background: #fff;
+      transition: border-color .2s, box-shadow .2s;
+      box-sizing: border-box;
+    }
+    input:focus, select:focus {
+      border-color: var(--brand-burgundy);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(120,20,29,.15);
+    }
+    .search-row {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+    .search-input { width: 250px; }
+    .search-select { min-width: 145px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(74,8,14,.04);
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      font-size: .9rem;
+      color: var(--text-dark);
+      white-space: nowrap;
+    }
+    th {
+      background: var(--brand-burgundy-dark);
+      color: var(--brand-gold-bright);
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 600;
+      letter-spacing: .5px;
+      border-bottom: 2px solid var(--brand-gold);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    tbody tr:nth-child(even) { background: #FDF9F3; }
+    tbody tr:hover { background: #FAF2E6; }
+    .action-cell { display: flex; gap: 6px; align-items: center; }
+    .action-btn {
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .85rem;
+      font-weight: 500;
+      border: none;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .view-btn {
+      background: var(--brand-burgundy-dark);
+      color: var(--brand-gold-bright);
+      border: 1px solid var(--brand-gold-dark);
+    }
+    .view-btn:hover { background: var(--brand-burgundy); color: #fff; }
+    .edit-btn {
+      background: var(--brand-gold);
+      color: var(--brand-burgundy-dark);
+      border: 1px solid var(--brand-gold-dark);
+    }
+    .edit-btn:hover { background: var(--brand-gold-dark); color: #fff; }
+    .delete-btn { background: var(--brand-burgundy-light); color: #fff; border: none; }
+    .delete-btn:hover { background: var(--brand-burgundy-dark); }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 12px;
+      font-size: .78rem;
+      font-weight: 600;
+      background: #F5F1EA;
+      color: var(--brand-burgundy-dark);
+      border: 1px solid var(--border-color);
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(44,24,16,.5);
+      backdrop-filter: blur(2px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .modal {
+      background: #fff;
+      border-radius: 10px;
+      border-top: 5px solid var(--brand-burgundy);
+      width: 80vw;
+      max-width: 950px;
+      max-height: 90vh;
+      overflow: auto;
+      padding: 24px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.25);
+    }
+    .modal-header {
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .modal-header h2 {
+      font-family: 'Montserrat', sans-serif;
+      color: var(--brand-burgundy-dark);
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .modal-footer {
+      text-align: right;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border-color);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .field label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+    .field input, .field select { width: 100%; }
+    .readonly { background: #f5f1ea !important; }
+    .empty { padding: 20px; text-align: center; color: var(--text-muted); }
+    #siProcessingOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(250,246,238,.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      font-size: 1.2rem;
+      font-weight: 600;
+      font-family: 'Montserrat', sans-serif;
+      color: var(--brand-burgundy);
+    }
+    .select2-container--open .select2-dropdown { z-index: 10000 !important; }
+    .select2-container { width: 100% !important; }
+    .select2-selection {
+      min-height: 37px !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: 6px !important;
+    }
+    .select2-selection__rendered { line-height: 35px !important; }
+    .select2-selection__arrow { height: 35px !important; }
+    @media (max-width: 900px) {
+      .form-grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+      .search-row { justify-content: flex-start; flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div id="siHeader" class="flex-space">
+    <div>
+      <h1>Sales Invoices</h1>
+      <h2>Add and manage your sales invoices</h2>
+    </div>
+    <button id="siBtnNew"><i class="fa fa-plus"></i> New Sales Invoice</button>
+  </div>
+  <div class="search-row">
+    <select id="siSearchCriteria" class="search-select">
+      <option value="All">All</option>
+      <option value="SI ID">SI ID</option>
+      <option value="Customer Name">Customer Name</option>
+      <option value="DR ID">DR ID</option>
+      <option value="SO ID">SO ID</option>
+      <option value="Invoice Num">Invoice Num</option>
+      <option value="SI Status">SI Status</option>
+    </select>
+    <input id="siSearchInput" class="search-input" type="text" placeholder="Search...">
+    <button id="siBtnSearch">Search</button>
+    <button id="siBtnClear" class="btn-clear">Clear</button>
+  </div>
+  <table id="siList">
+    <thead>
+      <tr>
+        <th>SI Date</th>
+        <th>SI ID</th>
+        <th>Customer ID</th>
+        <th>Customer Name</th>
+        <th>SO ID</th>
+        <th>DR ID</th>
+        <th>Invoice Num</th>
+        <th>SI Amount</th>
+        <th>SI Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div id="siProcessingOverlay"><i class="fa fa-spinner fa-pulse"></i>&nbsp; Processing...</div>
+
+<div id="siModalOverlay" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="siModalTitle">New Sales Invoice</h2>
+    </div>
+    <div id="siModalBody"></div>
+    <div id="siModalFooter" class="modal-footer"></div>
+  </div>
+</div>
+
+<script>
+  let siAllData = [];
+  let siCustomers = [];
+  let siAvailableDRs = [];
+  let siCurrent = null;
+  let siMode = 'new';
+
+  const esc = v => {
+    if (v === null || v === undefined) return '';
+    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  };
+  const num = v => Number(v) || 0;
+
+  function showProcessing(v) { document.getElementById('siProcessingOverlay').style.display = v ? 'flex' : 'none'; }
+  function closeModal() { document.getElementById('siModalOverlay').style.display = 'none'; siCurrent = null; siAvailableDRs = []; }
+  function openModal() { document.getElementById('siModalOverlay').style.display = 'flex'; }
+  function alertError(err) { showProcessing(false); alert((err && err.message) ? err.message : String(err)); }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('siBtnNew').onclick = siNew;
+    document.getElementById('siBtnSearch').onclick = siSearch;
+    document.getElementById('siBtnClear').onclick = () => {
+      document.getElementById('siSearchInput').value = '';
+      siRenderList(siAllData);
+    };
+    document.getElementById('siSearchInput').addEventListener('keydown', e => { if (e.key === 'Enter') siSearch(); });
+    siRefresh();
+  });
+
+  function siRefresh() {
+    showProcessing(true);
+    google.script.run
+      .withSuccessHandler(data => {
+        siAllData = data || [];
+        siRenderList(siAllData);
+        showProcessing(false);
+      })
+      .withFailureHandler(alertError)
+      .siGetAllSI();
+  }
+
+  function siSearch() {
+    const q = document.getElementById('siSearchInput').value.trim().toLowerCase();
+    const c = document.getElementById('siSearchCriteria').value;
+    if (!q) { siRenderList(siAllData); return; }
+    siRenderList(siAllData.filter(r => {
+      const vals = c === 'All' ? [r['SI ID'], r['Customer Name'], r['DR ID'], r['SO ID'], r['Invoice Num'], r['SI Status']] : [r[c]];
+      return vals.some(v => String(v ?? '').toLowerCase().includes(q));
+    }));
+  }
+
+  function siRenderList(rows) {
+    const body = document.querySelector('#siList tbody');
+    body.innerHTML = '';
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="10" class="empty">No sales invoices found.</td></tr>';
+      return;
+    }
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const status = esc(r['SI Status'] || 'Open');
+      tr.innerHTML = `
+        <td>${esc(r['SI Date'])}</td>
+        <td>${esc(r['SI ID'])}</td>
+        <td>${esc(r['Customer ID'])}</td>
+        <td>${esc(r['Customer Name'])}</td>
+        <td>${esc(r['SO ID'])}</td>
+        <td>${esc(r['DR ID'])}</td>
+        <td>${esc(r['Invoice Num'])}</td>
+        <td>${num(r['SI Amount']).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+        <td><span class="status-badge">${status}</span></td>
+        <td>
+          <div class="action-cell">
+            <button class="action-btn view-btn" onclick="siView('${esc(r['SI ID'])}')"><i class="fa fa-eye"></i> View</button>
+            <button class="action-btn edit-btn" onclick="siEdit('${esc(r['SI ID'])}')"><i class="fa fa-pen"></i> Edit</button>
+            <button class="action-btn delete-btn" onclick="siDelete('${esc(r['SI ID'])}')"><i class="fa fa-trash"></i> Delete</button>
+          </div>
+        </td>`;
+      body.appendChild(tr);
+    });
+  }
+
+  function siNew() {
+    siMode = 'new';
+    siCurrent = null;
+    siAvailableDRs = [];
+    showProcessing(true);
+
+    Promise.all([
+      new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .siGetCustomers();
+      }),
+      new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .siGenerateSIID();
+      })
+    ]).then(([customers, generatedSIID]) => {
+      siCustomers = customers || [];
+      siCurrent = { header: { 'SI ID': generatedSIID } };
+      siRenderModal();
+      showProcessing(false);
+      openModal();
+    }).catch(alertError);
+  }
+
+  function siRenderModal() {
+    const isView = siMode === 'view';
+    const h = siCurrent?.header || {};
+    const status = h['SI Status'] || 'Open';
+
+    document.getElementById('siModalTitle').textContent =
+      siMode === 'new' ? 'New Sales Invoice' : (siMode === 'edit' ? 'Edit Sales Invoice' : 'View Sales Invoice');
+
+    const customerOptions = siCustomers.map(c => `<option value="${esc(c['Customer ID'])}">${esc(c['Customer ID'])} - ${esc(c['Customer Name'])}</option>`).join('');
+    const drOption = isView && h['DR ID'] ? `<option value="${esc(h['DR ID'])}" selected>${esc(h['DR ID'])}</option>` : '<option value="">Select Delivery Receipt...</option>';
+
+    document.getElementById('siModalBody').innerHTML = `
+      <div class="form-grid">
+        <div class="field">
+          <label>SI Date</label>
+          <input id="siDate" type="date" value="${esc(formatDateInput(h['SI Date']) || today())}" ${isView ? 'disabled' : ''}>
+        </div>
+        <div class="field">
+          <label>SI ID</label>
+          <input id="siID" class="readonly" value="${esc(h['SI ID'] || 'Auto-generated')}" readonly>
+        </div>
+        <div class="field">
+          <label>SI Status</label>
+          <input id="siStatus" class="readonly" value="${esc(status)}" readonly>
+        </div>
+        <div class="field">
+          <label>Customer</label>
+          <select id="siCustomer" ${isView || siMode === 'edit' ? 'disabled' : ''}>
+            <option value="">Select customer...</option>
+            ${customerOptions}
+          </select>
+        </div>
+        <div class="field">
+          <label>Delivery Receipt (DR No)</label>
+          <select id="siDR" ${isView || siMode === 'edit' ? 'disabled' : ''}>
+            ${drOption}
+          </select>
+        </div>
+        <div class="field">
+          <label>SO ID</label>
+          <input id="siSO" class="readonly" value="${esc(h['SO ID'] || '')}" readonly>
+        </div>
+        <div class="field">
+          <label>Invoice Num</label>
+          <input id="siInvoice" value="${esc(h['Invoice Num'] || '')}" ${isView ? 'disabled' : ''}>
+        </div>
+        <div class="field">
+          <label>Customer State</label>
+          <input id="siState" class="readonly" value="${esc(h['State'] || '')}" readonly>
+        </div>
+        <div class="field">
+          <label>Customer City</label>
+          <input id="siCity" class="readonly" value="${esc(h['City'] || '')}" readonly>
+        </div>
+        <div class="field">
+          <label>DR Balance</label>
+          <input id="siDRBalance" class="readonly" value="${num(h['DR Balance']).toFixed(2)}" readonly>
+        </div>
+        <div class="field">
+          <label>SI Amount</label>
+          <input id="siAmount" type="number" step="0.01" min="0.01" value="${num(h['SI Amount']).toFixed(2)}" ${isView ? 'disabled' : ''}>
+        </div>
+      </div>`;
+
+    const footer = document.getElementById('siModalFooter');
+    footer.innerHTML = `<button class="btn-clear" onclick="closeModal()">Close</button>${!isView ? '<button id="siSaveBtn"><i class="fa fa-save"></i> Save</button>' : ''}`;
+
+    $('#siCustomer').select2({ dropdownParent: $('#siModalOverlay'), placeholder: 'Select customer...' });
+    $('#siDR').select2({ dropdownParent: $('#siModalOverlay'), placeholder: 'Select Delivery Receipt...' });
+
+    if (!isView) {
+      if (siMode === 'new') {
+        $('#siCustomer').on('change', () => siCustomerChanged($('#siCustomer').val()));
+        $('#siDR').on('change', () => siDRChanged($('#siDR').val()));
+      }
+      document.getElementById('siSaveBtn').onclick = siSave;
+
+      if (h['Customer ID']) {
+        $('#siCustomer').val(String(h['Customer ID'])).trigger('change.select2');
+      }
+    } else {
+      if (h['Customer ID']) $('#siCustomer').val(String(h['Customer ID'])).trigger('change.select2');
+      if (h['DR ID']) $('#siDR').val(String(h['DR ID'])).trigger('change.select2');
+    }
+  }
+
+  function formatDateInput(v) {
+    if (!v) return '';
+    const s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s);
+    if (isNaN(d)) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function today() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function siCustomerChanged(customerID) {
+    if (!customerID) return;
+    const c = siCustomers.find(x => String(x['Customer ID']) === String(customerID));
+    if (c) {
+      document.getElementById('siState').value = c['State'] || '';
+      document.getElementById('siCity').value = c['City'] || '';
+    }
+
+    showProcessing(true);
+    const currentSIID = siCurrent?.header?.['SI ID'] || '';
+    google.script.run
+      .withSuccessHandler(drs => {
+        siAvailableDRs = drs || [];
+        const select = $('#siDR');
+        select.empty().append('<option value="">Select Delivery Receipt...</option>');
+
+        siAvailableDRs.forEach(dr => {
+          select.append(new Option(dr['DR ID'], dr['DR ID']));
+        });
+
+        if (siCurrent?.header?.['DR ID']) {
+          select.val(String(siCurrent.header['DR ID']).trim()).trigger('change');
+        }
+        showProcessing(false);
+      })
+      .withFailureHandler(alertError)
+      .siGetEligibleDeliveryReceipts(customerID, currentSIID);
+  }
+
+  function siDRChanged(drID) {
+    if (!drID) return;
+    const dr = siAvailableDRs.find(x => String(x['DR ID']) === String(drID));
+    if (dr) {
+      document.getElementById('siSO').value = dr['SO ID'] || '';
+      document.getElementById('siInvoice').value = dr['Invoice Num'] || '';
+      document.getElementById('siDRBalance').value = num(dr['DR Balance']).toFixed(2);
+      // Default SI Amount to DR Balance for easy billing
+      document.getElementById('siAmount').value = num(dr['DR Balance']).toFixed(2);
+    }
+  }
+
+  function siValidateClient() {
+    const customerID = $('#siCustomer').val();
+    const drID = $('#siDR').val();
+    const siAmount = num(document.getElementById('siAmount').value);
+    const drBalance = num(document.getElementById('siDRBalance').value);
+
+    if (!customerID) { alert('Please select a customer.'); return false; }
+    if (!drID) { alert('Please select a Delivery Receipt.'); return false; }
+    if (!Number.isFinite(siAmount) || siAmount <= 0) { alert('SI Amount must be greater than zero.'); return false; }
+    if (siAmount > drBalance) { alert(`SI Amount (${siAmount.toFixed(2)}) cannot exceed DR Balance (${drBalance.toFixed(2)}).`); return false; }
+
+    return true;
+  }
+
+  function siSave() {
+    if (!siValidateClient()) return;
+
+    const payload = {
+      master: {
+        'SI Date': document.getElementById('siDate').value,
+        'SI ID': document.getElementById('siID').value === 'Auto-generated' ? '' : document.getElementById('siID').value,
+        'Customer ID': $('#siCustomer').val(),
+        'DR ID': $('#siDR').val(),
+        'SO ID': document.getElementById('siSO').value,
+        'Invoice Num': document.getElementById('siInvoice').value,
+        'SI Amount': num(document.getElementById('siAmount').value)
+      }
+    };
+
+    showProcessing(true);
+    google.script.run
+      .withSuccessHandler(result => {
+        showProcessing(false);
+        closeModal();
+        siRefresh();
+        alert(`Sales Invoice ${result.siID} saved successfully.`);
+      })
+      .withFailureHandler(alertError)
+      .siSaveSalesInvoice(payload);
+  }
+
+  function siView(id) {
+    if (!id) return;
+    showProcessing(true);
+    google.script.run
+      .withSuccessHandler(doc => {
+        siMode = 'view';
+        siCurrent = doc;
+        google.script.run
+          .withSuccessHandler(customers => {
+            siCustomers = customers || [];
+            siRenderModal();
+            showProcessing(false);
+            openModal();
+          })
+          .withFailureHandler(alertError)
+          .siGetCustomers();
+      })
+      .withFailureHandler(alertError)
+      .siGetSalesInvoice(id);
+  }
+
+  function siEdit(id) {
+    if (!id) return;
+    showProcessing(true);
+    google.script.run
+      .withSuccessHandler(doc => {
+        siMode = 'edit';
+        siCurrent = doc;
+        google.script.run
+          .withSuccessHandler(customers => {
+            siCustomers = customers || [];
+            siRenderModal();
+            showProcessing(false);
+            openModal();
+          })
+          .withFailureHandler(alertError)
+          .siGetCustomers();
+      })
+      .withFailureHandler(alertError)
+      .siGetSalesInvoice(id);
+  }
+
+  function siDelete(id) {
+    if (!confirm(`Delete Sales Invoice ${id}? This will reverse its revenue and invoicing effects.`)) return;
+    showProcessing(true);
+    google.script.run
+      .withSuccessHandler(() => {
+        showProcessing(false);
+        siRefresh();
+        alert(`Sales Invoice ${id} deleted successfully.`);
+      })
+      .withFailureHandler(alertError)
+      .siDeleteSalesInvoice(id);
+  }
+</script>
+</body>
+</html>
