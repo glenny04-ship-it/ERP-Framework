@@ -135,6 +135,103 @@
     box-shadow: 0 0 0 2px rgba(120, 20, 29, 0.15);
   }
 
+  .action-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .search-group {
+    margin-left: auto;
+  }
+
+  .search-select {
+    min-width: 145px;
+  }
+
+  /* === DR-style Modal Form Layout === */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .readonly {
+    background: #F5F1EA !important;
+  }
+
+  .detail-wrap {
+    overflow: auto;
+  }
+
+  .detail-table {
+    margin-top: 8px;
+  }
+
+  .detail-table input {
+    width: 110px;
+    text-align: right;
+    box-sizing: border-box;
+  }
+
+  .empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  .select2-container {
+    width: 100% !important;
+  }
+
+  .select2-selection {
+    min-height: 37px !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 6px !important;
+  }
+
+  .select2-selection__rendered {
+    line-height: 35px !important;
+  }
+
+  .select2-selection__arrow {
+    height: 35px !important;
+  }
+
+  @media (max-width: 900px) {
+    .form-grid {
+      grid-template-columns: repeat(2, minmax(160px, 1fr));
+    }
+
+    .action-row {
+      align-items: flex-start;
+    }
+
+    .search-group {
+      margin-left: 0;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+  }
+
   /* === Buttons & Inputs === */
   button, .btn {
     background: linear-gradient(180deg, var(--brand-burgundy-light) 0%, var(--brand-burgundy) 100%);
@@ -398,26 +495,25 @@
 <body>
   <div class="container">
     <!-- Header -->
-    <div id="soHeader" class="flex-space">
+    <div id="soHeader">
       <div>
         <h1>Sales Orders</h1>
         <h2>Add and manage your SOs</h2>
       </div>
-      <button id="soBtnNewSO"><i class="fa fa-plus"></i> New SO</button>
     </div>
 
-    <!-- Navigation & Search -->
-    <div class="flex-space">
-      <div></div>
-      <div class="flex">
-        <select id="soSearchCriteria">
+    <!-- Action / Search Row -->
+    <div class="action-row">
+      <button id="soBtnNewSO"><i class="fa fa-plus"></i> New Sales Order</button>
+      <div class="search-group">
+        <select id="soSearchCriteria" class="search-select">
           <option>All</option>
           <option>SO ID</option>
           <option>Customer Name</option>
           <option>Invoice Num</option>
           <option>SO Status</option>
         </select>
-        <input type="text" id="soSearchInput" placeholder="Search...">
+        <input type="text" id="soSearchInput" class="search-input" placeholder="Search...">
         <button id="soBtnSearch">Search</button>
         <button class="btn-clear" id="soBtnClear">Clear</button>
       </div>
@@ -601,35 +697,55 @@ function renderSOList(rows) {
 
   tbody.innerHTML = '';
 
+  if (!soAllData.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" class="empty">No Sales Orders found.</td>
+      </tr>
+    `;
+    return;
+  }
+
   soAllData.forEach(r => {
 
     const totalAmt = parseFloat(r['Total SO Amount']) || 0;
+    const soID = escapeHtml(r['SO ID']);
 
     const tr = document.createElement('tr');
 
     tr.innerHTML = `
       <td>${escapeHtml(new Date(r['SO Date']).toLocaleDateString())}</td>
-      <td>${escapeHtml(r['SO ID'])}</td>
+      <td>${soID}</td>
       <td>${escapeHtml(r['Customer ID'])}</td>
       <td>${escapeHtml(r['Customer Name'])}</td>
       <td>${escapeHtml(r['Invoice Num'])}</td>
       <td>${escapeHtml(r['State'])}</td>
       <td>${escapeHtml(r['City'])}</td>
       <td>${totalAmt.toFixed(2)}</td>
-  <button class="btn"
-      onclick= "soEditSalesOrder('${escapeHtml(r['SO ID'])}')">
-      Edit
-  </button> <button class="btn"
-      onclick="soDeleteSalesOrder('${escapeHtml(r['SO ID'])}')">
-      Delete
-  </button>
-</td>
+      <td>
+        <div class="action-cell">
+          <button class="action-btn view-btn"
+                  onclick="soViewSalesOrder('${soID}')"
+                  title="View Sales Order">
+            <i class="fa fa-eye"></i> View
+          </button>
+          <button class="action-btn edit-btn"
+                  onclick="soEditSalesOrder('${soID}')"
+                  title="Edit Sales Order">
+            <i class="fa fa-pen"></i> Edit
+          </button>
+          <button class="action-btn delete-btn"
+                  onclick="soDeleteSalesOrder('${soID}')"
+                  title="Delete Sales Order">
+            <i class="fa fa-trash"></i> Delete
+          </button>
+        </div>
+      </td>
     `;
 
     tbody.appendChild(tr);
 
   });
-
 
   const overlay = document.getElementById('soProcessingOverlay');
 
@@ -638,7 +754,6 @@ function renderSOList(rows) {
   }
 
 }
-
 function applySearch() {
   const crit = document.getElementById('soSearchCriteria').value;
   const val  = document.getElementById('soSearchInput').value.toLowerCase();
@@ -723,7 +838,9 @@ function populateCustomerDropdown(customers) {
       placeholder:
         'Select Customer',
       width:
-        '100%'
+        '100%',
+      dropdownParent:
+        $('#soModalOverlay')
     })
     .on(
       'change',
@@ -749,7 +866,7 @@ function openSalesOrderEditor(soDocument = null) {
     currentDocument = soDocument;
     currentMode = soDocument ? "edit" : "new";
 
-    const body = newSOFormBody();
+    const body = newSOFormBody(false);
     const footer = newSOFormFooter();
 
     showModal(
@@ -767,19 +884,16 @@ function openSalesOrderEditor(soDocument = null) {
 
             if (currentMode === "new") {
 
-                document.getElementById("soNewDate").value = new Date().toISOString().split("T")[0];
+                document.getElementById("soNewDate").value =
+                    new Date().toISOString().split("T")[0];
+
                 document.getElementById("soNewSOStatus").value = "Open";
 
-                // Generate Sales Order ID
                 google.script.run
                     .withSuccessHandler(soID => {
-
-                        document.getElementById("soNewSOID").value =
-                            soID;
-
+                        document.getElementById("soNewSOID").value = soID;
                     })
                     .withFailureHandler(err => {
-
                         console.error(
                             "Failed to generate Sales Order ID:",
                             err
@@ -789,7 +903,6 @@ function openSalesOrderEditor(soDocument = null) {
                             "Unable to generate Sales Order ID.\n\n" +
                             (err.message || err)
                         );
-
                     })
                     .Document_generateID("SalesOrder");
 
@@ -805,52 +918,79 @@ function openSalesOrderEditor(soDocument = null) {
                 err
             );
 
+            alert(
+                "Failed to load customers.\n\n" +
+                (err.message || err)
+            );
+
         })
         .soGetCustomers();
 }
 
-function newSOFormBody() {
+function newSOFormBody(viewMode = false) {
+      const disabled = viewMode ? "disabled" : "";
+
       return `
         <div>
           <h3>Section 1: Master Information</h3>
-          <div class="flex-space">
-            <div style="flex:1; margin-right:10px">
-              <label>SO ID</label><br>
-              <input type="text" id="soNewSOID" readonly>
-             </div>
-            <div style="flex:1; margin-right:10px">
-              <label>Customer Name</label><br>
-              <select id="soNewCustomer" style="width:100%"></select>
+
+          <div class="form-grid">
+
+            <div class="field">
+              <label>SO Date</label>
+              <input type="date" id="soNewDate" ${disabled}>
             </div>
-            <div style="flex:1; margin-right:10px">
-              <label>Customer ID</label><br>
-              <input type="text" id="soNewCustID" readonly>
+
+            <div class="field">
+              <label>SO ID</label>
+              <input type="text" id="soNewSOID" class="readonly" readonly>
             </div>
-            <div style="flex:1; margin-right:10px">
-              <label>State</label><br>
-              <input type="text" id="soNewState" readonly>
+
+            <div class="field">
+              <label>Customer Name</label>
+              <select id="soNewCustomer" ${disabled}></select>
             </div>
-            <div style="flex:1; margin-right:10px">
-              <label>City</label><br>
-              <input type="text" id="soNewCity" readonly>
+
+            <div class="field">
+              <label>Customer ID</label>
+              <input type="text" id="soNewCustID" class="readonly" readonly>
             </div>
-            <div style="flex:1; margin-right:10px">
-              <label>Invoice Num</label><br>
-              <input type="text" id="soNewInvoice">
+
+            <div class="field">
+              <label>State</label>
+              <input type="text" id="soNewState" class="readonly" readonly>
             </div>
-            <div style="flex:1">
-              <label>SO Date</label><br>
-              <input type="date" id="soNewDate">
+
+            <div class="field">
+              <label>City</label>
+              <input type="text" id="soNewCity" class="readonly" readonly>
             </div>
-           <input type="hidden" id="soNewSOStatus" value="Open">
-           <input type="hidden" id="soNewTotalAmount" value="0">
+
+            <div class="field">
+              <label>Invoice Num</label>
+              <input type="text" id="soNewInvoice" ${disabled}>
+            </div>
+
+            <div class="field">
+              <label>Total SO Amount</label>
+              <input type="text" id="soNewTotalDisplay" class="readonly" value="0.00" readonly>
+            </div>
+
+            <input type="hidden" id="soNewSOStatus" value="Open">
+            <input type="hidden" id="soNewTotalAmount" value="0">
           </div>
         </div>
-        <hr>
-        <div>
+
+        <div class="detail-wrap">
           <h3>Section 2: Line Items</h3>
-          <button class="add-row btn" onclick="addSOLine()">+ Add Row</button>
-          <table id="soNewLines">
+
+          ${viewMode ? '' : `
+            <button class="add-row btn" onclick="addSOLine()">
+              <i class="fa fa-plus"></i> Add Row
+            </button>
+          `}
+
+          <table id="soNewLines" class="detail-table">
             <thead>
               <tr>
                 <th style="display:none;">SO Date</th>
@@ -861,19 +1001,29 @@ function newSOFormBody() {
                 <th style="display:none;">State</th>
                 <th style="display:none;">City</th>
                 <th style="display:none;">Invoice Num</th>
-                <th>Item Name</th><th>Item ID</th><th>Item Type</th>
+                <th>Item Name</th>
+                <th>Item ID</th>
+                <th>Item Type</th>
                 <th style="display:none;">Item Category</th>
                 <th style="display:none;">Item Subcategory</th>
                 <th>QTY Ordered</th>
-                <th contenteditable="false">QTY Delivered</th>
-                <th contenteditable="false">QTY Balance</th>
+                <th>QTY Delivered</th>
+                <th>QTY Balance</th>
                 <th>Unit Price</th>
-                <th>Amount Excl Tax</th><th>Tax Rate</th><th>Total Tax</th>
-                <th>Amount Incl Tax</th><th>Shipping Fees</th><th>Total Sales Amount</th>
-                <th>Remove</th>
+                <th>Amount Excl Tax</th>
+                <th>Tax Rate</th>
+                <th>Total Tax</th>
+                <th>Amount Incl Tax</th>
+                <th>Shipping Fees</th>
+                <th>Total Sales Amount</th>
+                ${viewMode ? '' : '<th>Remove</th>'}
               </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+              <tr>
+                <td colspan="${viewMode ? 23 : 24}" class="empty">No detail rows.</td>
+              </tr>
+            </tbody>
           </table>
         </div>
       `;
@@ -881,13 +1031,21 @@ function newSOFormBody() {
 
     function newSOFormFooter() {
       return `
-        <button class="btn" onclick="saveNewSO()">Save</button>
+        <button id="soBtnSave" class="btn" onclick="saveNewSO()">
+          <i class="fa fa-save"></i> Save
+        </button>
+        <button class="btn-clear" onclick="closeModal()">Close</button>
+      `;
+    }
+
+    function newSOViewFooter() {
+      return `
         <button class="btn-clear" onclick="closeModal()">Close</button>
       `;
     }
 
     // Claude 
-  async function addSOLine(existingRow = null) {
+  async function addSOLine(existingRow = null, readOnly = false) {
   const validation = validateSOHeader();
   if (!validation.valid) {
     alert(validation.message);
@@ -964,22 +1122,22 @@ if (existingRow) {
       <td style="display:none">${escapeHtml(state)}</td>
       <td style="display:none">${escapeHtml(city)}</td>
       <td style="display:none">${escapeHtml(inv)}</td>
-      <td><select class="soItemName" style="width:150px"></select></td>
+      <td><select class="soItemName" style="width:150px" ${readOnly ? "disabled" : ""}></select></td>
       <td class="soItemID"></td>
       <td class="soItemType" style="display:none"></td>
       <td class="soItemCat" style="display:none"></td>
       <td class="soItemSubcat style="display:none""></td>
-      <td><input type="number" class="soQty" min="1" value="1" style="width: 80px;"></td>
+      <td><input type="number" class="soQty" min="1" value="1" style="width: 80px;" ${readOnly ? "disabled" : ""}></td>
       <td><input type="number" class="soDelQty" value="0" readonly style="width: 80px;"></td>
       <td><input type="number" class="soBalQty" value="0" readonly style="width: 80px;"></td>
-      <td><input type="number" class="soUnitPrice" step="0.5" value="0.00" style="width: 100px;"></td>
+      <td><input type="number" class="soUnitPrice" step="0.5" value="0.00" style="width: 100px;" ${readOnly ? "disabled" : ""}></td>
       <td class="soAmountExcl" style="width: 60px;">0.00</td>
-      <td><input type="number" class="soTaxRate" step="0.5" value="0.00" style="width: 80px;"></td>
+      <td><input type="number" class="soTaxRate" step="0.5" value="0.00" style="width: 80px;" ${readOnly ? "disabled" : ""}></td>
       <td class="soTotalTax" style="width: 60px;">0.00</td>
       <td class="soAmountIncl" style="width: 60px;">0.00</td>
-      <td><input type="number" class="soShipFees" step="0.5" value="0.00" style="width: 80px;"></td>
+      <td><input type="number" class="soShipFees" step="0.5" value="0.00" style="width: 80px;" ${readOnly ? "disabled" : ""}></td>
       <td class="soTotalSales" style="width: 90px;">0.00</td>
-      <td><span class="remove-row" onclick="removeSOLine(this)">×</span></td>
+      ${readOnly ? '' : '<td><span class="remove-row" onclick="removeSOLine(this)">×</span></td>'}
 
     `;
     tbody.appendChild(tr);
@@ -991,7 +1149,7 @@ if (existingRow) {
       sel.add(opt);
     });
 
-    $(sel).select2({ placeholder: 'Item Name' })
+    $(sel).select2({ placeholder: 'Item Name', dropdownParent: $('#soModalOverlay') })
       .on('change', function() {
         const itemName = this.value;
         const item = soInventory.find(i => i['Item Name'] === itemName);
@@ -1004,9 +1162,11 @@ if (existingRow) {
         }
       });
 
-    ['.soQty', '.soUnitPrice', '.soTaxRate', '.soShipFees'].forEach(cls => {
-      tr.querySelector(cls).addEventListener('input', () => recalcLine(tr));
-    });
+    if (!readOnly) {
+      ['.soQty', '.soUnitPrice', '.soTaxRate', '.soShipFees'].forEach(cls => {
+        tr.querySelector(cls).addEventListener('input', () => recalcLine(tr));
+      });
+    }
 
     if (existingRow) {
       $(sel).val(existingRow["Item Name"]).trigger("change"); // now safe, and fires the change handler above
@@ -1096,6 +1256,11 @@ function soCalculateFormTotal() {
 
   if (totalField) {
     totalField.value = total;
+  }
+
+  const totalDisplay = document.getElementById("soNewTotalDisplay");
+  if (totalDisplay) {
+    totalDisplay.value = total.toFixed(2);
   }
 
   return total;
@@ -1301,7 +1466,7 @@ function soDeleteSalesOrder(soID) {
 }
 
 // Chat GPT function
-async function loadSalesOrder(doc) {
+async function loadSalesOrder(doc, readOnly = false) {
 
     console.log("loadSalesOrder received:", doc);
 
@@ -1348,10 +1513,80 @@ async function loadSalesOrder(doc) {
     console.log("SalesDetails received:", detailRows);
 
     for (const row of detailRows) {
-        await addSOLine(row);
+        await addSOLine(row, readOnly);
+    }
+
+    soCalculateFormTotal();
+
+    if (readOnly) {
+        document.querySelectorAll("#soNewLines input, #soNewLines select").forEach(el => {
+            el.disabled = true;
+        });
     }
 }
 
+
+function soViewSalesOrder(soID) {
+
+    console.log("soViewSalesOrder received:", soID);
+
+    if (!soID) {
+        alert("No Sales Order ID was provided.");
+        return;
+    }
+
+    google.script.run
+        .withSuccessHandler(doc => {
+
+            if (!doc || !doc.header) {
+                alert(
+                    "Sales Order could not be loaded.\n\n" +
+                    "Document header is missing."
+                );
+                return;
+            }
+
+            currentDocument = doc;
+            currentMode = "view";
+
+            showModal(
+                "View Sales Order",
+                newSOFormBody(true),
+                newSOViewFooter()
+            );
+
+            google.script.run
+                .withSuccessHandler(customers => {
+                    populateCustomerDropdown(customers);
+                    $("#soNewCustomer")
+                        .val(doc.header["Customer Name"] || "")
+                        .trigger("change")
+                        .prop("disabled", true);
+                    loadSalesOrder(doc, true);
+                })
+                .withFailureHandler(err => {
+                    console.error("Failed to load customers:", err);
+                    alert(
+                        "Failed to load customer information.\n\n" +
+                        (err.message || err)
+                    );
+                })
+                .soGetCustomers();
+
+        })
+        .withFailureHandler(err => {
+            console.error(
+                "Document_get failed for Sales Order:",
+                soID,
+                err
+            );
+            alert(
+                "Failed to load Sales Order.\n\n" +
+                (err && err.message ? err.message : String(err))
+            );
+        })
+        .Document_get("SalesOrder", soID);
+}
 
 function soEditSalesOrder(soID) {
 
