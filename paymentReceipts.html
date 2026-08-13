@@ -1,10 +1,249 @@
 Exit code: 0
-Wall time: 1.5 seconds
+Wall time: 1.7 seconds
 Output:
 <!DOCTYPE html>
-<html><head><base target="_top"><meta charset="UTF-8"><title>Payment Receipts</title>
-<link href="https://fonts.googleapis.com/css?family=Poppins:400,600|Montserrat:400,500" rel="stylesheet"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script><link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet"><script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<style>:root{--b:#78141D;--d:#4A080E;--g:#E5C058;--c:#FAF6EE;--t:#2C1810;--m:#6B5B52;--line:#E8DCCB}body{margin:0;font-family:Poppins,sans-serif;background:var(--c);color:var(--t)}.container{padding:24px}.flex{display:flex;justify-content:space-between;align-items:center}h1{margin:0;font-family:Montserrat;color:var(--d)}h2{margin:4px 0 20px;color:var(--m);font-size:.95rem;font-weight:400}button,input,select{font:inherit;border-radius:6px}button{background:linear-gradient(#941B26,var(--b));color:#FBE6A3;border:1px solid #B58A2B;padding:9px 16px;cursor:pointer}.clear{background:#fff;color:var(--b);border-color:var(--line)}.search{display:flex;justify-content:flex-end;gap:8px;margin-bottom:15px}.search input{width:250px}input,select{padding:8px 12px;border:1px solid var(--line);box-sizing:border-box}table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:12px;border:1px solid var(--line);white-space:nowrap;font-size:.9rem}th{background:var(--d);color:#FBE6A3}.action{padding:6px 10px;margin-right:4px}.edit{background:var(--g);color:var(--d)}.delete{background:#941B26;color:white}.badge{padding:4px 9px;border:1px solid var(--line);border-radius:12px}.overlay{display:none;position:fixed;inset:0;background:#2c181080;align-items:center;justify-content:center;z-index:10}.modal{width:80vw;max-width:950px;background:#fff;padding:24px;border-radius:10px;border-top:5px solid var(--b)}.grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:14px}.field label{display:block;font-size:.78rem;color:var(--m);font-weight:600;margin-bottom:5px}.field input,.field select{width:100%}.readonly{background:#f5f1ea}.footer{text-align:right;margin-top:20px}.empty{text-align:center;color:var(--m)}.select2-container{width:100%!important}.select2-container--open .select2-dropdown{z-index:20!important}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.search{justify-content:flex-start;flex-wrap:wrap}}</style></head>
-<body><div class="container"><div class="flex"><div><h1>Payment Receipts</h1><h2>Add and manage customer payments</h2></div><button onclick="prNew()"><i class="fa fa-plus"></i> New Payment Receipt</button></div><div class="search"><select id="criteria"><option>All</option><option>PR ID</option><option>Customer Name</option><option>SI ID</option><option>Invoice Num</option><option>PR Status</option></select><input id="query" placeholder="Search..."><button onclick="prSearch()">Search</button><button class="clear" onclick="query.value='';render(all)">Clear</button></div><table><thead><tr><th>PR Date</th><th>PR ID</th><th>Customer ID</th><th>Customer Name</th><th>State</th><th>City</th><th>SI ID</th><th>Invoice Num</th><th>PR Amount</th><th>PR Status</th><th>Actions</th></tr></thead><tbody id="list"></tbody></table></div><div id="modal" class="overlay"><div class="modal"><h1 id="title"></h1><div id="body"></div><div id="footer" class="footer"></div></div></div>
-<script>let all=[],customers=[],invoices=[],current=null,mode='new';const n=v=>Number(v)||0,esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[x]));const today=()=>new Date().toISOString().slice(0,10);function call(name,...args){return new Promise((ok,bad)=>google.script.run.withSuccessHandler(ok).withFailureHandler(bad)[name](...args))}function fail(e){alert(e&&e.message||e)}function refresh(){call('prGetAllPaymentReceipts').then(x=>{all=x||[];render(all)}).catch(fail)}function render(rows){list.innerHTML=rows.length?rows.map(r=>`<tr><td>${esc(r['PR Date'])}</td><td>${esc(r['PR ID'])}</td><td>${esc(r['Customer ID'])}</td><td>${esc(r['Customer Name'])}</td><td>${esc(r.State)}</td><td>${esc(r.City)}</td><td>${esc(r['SI ID'])}</td><td>${esc(r['Invoice Num'])}</td><td>${n(r['PR Amount']).toLocaleString(undefined,{minimumFractionDigits:2})}</td><td><span class="badge">${esc(r['PR Status'])}</span></td><td><button class="action" onclick="prView('${esc(r['PR ID'])}')">View</button><button class="action edit" onclick="prEdit('${esc(r['PR ID'])}')">Edit</button><button class="action delete" onclick="prDelete('${esc(r['PR ID'])}')">Delete</button></td></tr>`).join(''):'<tr><td class="empty" colspan="11">No payment receipts found.</td></tr>'}function prSearch(){const q=query.value.trim().toLowerCase(),c=criteria.value;render(!q?all:all.filter(r=>(c==='All'?[r['PR ID'],r['Customer Name'],r['SI ID'],r['Invoice Num'],r['PR Status']]:[r[c]]).some(v=>String(v??'').toLowerCase().includes(q))))}function open(){modal.style.display='flex'}function close(){modal.style.display='none'}async function prNew(){mode='new';[customers,current]=await Promise.all([call('prGetCustomers'),call('prGeneratePRID').then(id=>({header:{'PR ID':id}}))]);invoices=[];form();open()}async function prView(id){mode='view';[current,customers]=await Promise.all([call('prGetPaymentReceipt',id),call('prGetCustomers')]);form();open()}async function prEdit(id){mode='edit';[current,customers]=await Promise.all([call('prGetPaymentReceipt',id),call('prGetCustomers')]);invoices=await call('prGetEligibleSalesInvoices',current.header['Customer ID'],id);form();open()}function form(){const h=current.header||{},view=mode==='view',locked=view||mode==='edit';title.textContent=mode==='new'?'New Payment Receipt':mode==='edit'?'Edit Payment Receipt':'View Payment Receipt';body.innerHTML=`<div class="grid"><div class="field"><label>PR Date</label><input id="date" type="date" value="${esc(h['PR Date']||today())}" ${view?'disabled':''}></div><div class="field"><label>PR ID</label><input id="id" class="readonly" readonly value="${esc(h['PR ID'])}"></div><div class="field"><label>PR Status</label><input class="readonly" readonly value="${esc(h['PR Status']||'Applied')}"></div><div class="field"><label>Customer</label><select id="customer" ${locked?'disabled':''}><option value="">Select customer...</option>${customers.map(c=>`<option value="${esc(c['Customer ID'])}">${esc(c['Customer ID'])} - ${esc(c['Customer Name'])}</option>`).join('')}</select></div><div class="field"><label>Sales Invoice</label><select id="si" ${locked?'disabled':''}><option value="">Select Sales Invoice...</option>${invoices.map(x=>`<option value="${esc(x['SI ID'])}">${esc(x['SI ID'])} — ${esc(x['Invoice Num'])}</option>`).join('')}</select></div><div class="field"><label>Invoice Num</label><input id="invoice" class="readonly" readonly value="${esc(h['Invoice Num'])}"></div><div class="field"><label>State</label><input id="state" class="readonly" readonly value="${esc(h.State)}"></div><div class="field"><label>City</label><input id="city" class="readonly" readonly value="${esc(h.City)}"></div><div class="field"><label>Available SI Balance</label><input id="balance" class="readonly" readonly value="${n(h['Available SI Balance']).toFixed(2)}"></div><div class="field"><label>PR Amount</label><input id="amount" type="number" step="0.01" min="0.01" value="${n(h['PR Amount']).toFixed(2)}" ${view?'disabled':''}></div></div>`;footer.innerHTML=`<button class="clear" onclick="close()">Close</button>${view?'':'<button onclick="save()">Save</button>'}`;$('#customer').select2({dropdownParent:$('#modal')}).val(h['Customer ID']||'').trigger('change.select2');$('#si').select2({dropdownParent:$('#modal')}).val(h['SI ID']||'').trigger('change.select2');if(mode==='new'){$('#customer').on('change',customerChanged);$('#si').on('change',siChanged)}}async function customerChanged(){const id=$('#customer').val(),c=customers.find(x=>String(x['Customer ID'])===String(id));state.value=c?.State||'';city.value=c?.City||'';invoices=id?await call('prGetEligibleSalesInvoices',id,''):[];$('#si').empty().append('<option value="">Select Sales Invoice...</option>');invoices.forEach(x=>$('#si').append(new Option(`${x['SI ID']} — ${x['Invoice Num']||''}`,x['SI ID'])));invoice.value='';balance.value='0.00';amount.value='0.00'}function siChanged(){const x=invoices.find(x=>String(x['SI ID'])===String($('#si').val()));if(x){invoice.value=x['Invoice Num']||'';balance.value=n(x['SI Balance']).toFixed(2);amount.value=n(x['SI Balance']).toFixed(2)}}function save(){const a=n(amount.value),b=n(balance.value);if(!$('#customer').val()||!$('#si').val())return alert('Please select a customer and Sales Invoice.');if(a<=0||a>b)return alert(`PR Amount must be greater than zero and cannot exceed the available SI Balance (${b.toFixed(2)}).`);call('prSavePaymentReceipt',{master:{'PR Date':date.value,'PR ID':id.value,'Customer ID':$('#customer').val(),'SI ID':$('#si').val(),'PR Amount':a}}).then(r=>{close();refresh();alert(`Payment Receipt ${r.prID} saved successfully.`)}).catch(fail)}function prDelete(id){if(confirm(`Delete Payment Receipt ${id}? This will reverse its payment effects.`))call('prDeletePaymentReceipt',id).then(()=>{refresh();alert(`Payment Receipt ${id} deleted successfully.`)}).catch(fail)}document.addEventListener('DOMContentLoaded',()=>{query.addEventListener('keydown',e=>e.key==='Enter'&&prSearch());refresh()});</script></body></html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Payment Receipts</title>
+  <link href="https://fonts.googleapis.com/css?family=Poppins:400,600|Roboto:400,500|Montserrat:400,500" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <style>
+    :root {
+      --brand-burgundy: #78141D;
+      --brand-burgundy-dark: #4A080E;
+      --brand-burgundy-light: #941B26;
+      --brand-gold: #E5C058;
+      --brand-gold-bright: #FBE6A3;
+      --brand-gold-dark: #B58A2B;
+      --brand-cream: #FAF6EE;
+      --text-dark: #2C1810;
+      --text-muted: #6B5B52;
+      --border-color: #E8DCCB;
+    }
+
+    body { margin: 0; font-family: 'Poppins', sans-serif; background: var(--brand-cream); color: var(--text-dark); }
+    h1, h2 { margin: 0; }
+    .container { padding: 24px; }
+    .flex { display: flex; align-items: center; }
+    .flex-space { justify-content: space-between; }
+    #prHeader { margin-bottom: 20px; }
+    #prHeader h1 { font-family: 'Montserrat', sans-serif; font-size: 1.8rem; color: var(--brand-burgundy-dark); }
+    #prHeader h2 { margin-top: 4px; font-size: .95rem; font-weight: 400; color: var(--text-muted); }
+
+    button, .btn { background: linear-gradient(180deg, var(--brand-burgundy-light), var(--brand-burgundy)); color: var(--brand-gold-bright); border: 1px solid var(--brand-gold-dark); padding: 9px 16px; border-radius: 6px; cursor: pointer; font: 500 .9rem 'Poppins', sans-serif; transition: all .25s ease; }
+    button:hover, .btn:hover { background: var(--brand-burgundy-dark); color: #fff; transform: translateY(-1px); }
+    .btn-clear { background: #fff; color: var(--brand-burgundy); border-color: var(--border-color); }
+    .btn-clear:hover { background: var(--brand-cream); color: var(--brand-burgundy-dark); }
+    .search-row { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 15px; }
+    input, select { box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: #fff; color: var(--text-dark); font: .9rem 'Poppins', sans-serif; }
+    input:focus, select:focus { outline: none; border-color: var(--brand-burgundy); box-shadow: 0 0 0 2px rgba(120,20,29,.15); }
+    .search-input { width: 250px; }
+    .search-select { min-width: 145px; }
+
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(74,8,14,.04); }
+    th, td { padding: 12px; border: 1px solid var(--border-color); font-size: .9rem; white-space: nowrap; }
+    th { position: sticky; top: 0; z-index: 2; background: var(--brand-burgundy-dark); color: var(--brand-gold-bright); border-bottom: 2px solid var(--brand-gold); font-family: 'Montserrat', sans-serif; }
+    tbody tr:nth-child(even) { background: #FDF9F3; }
+    tbody tr:hover { background: #FAF2E6; }
+    .action-cell { display: flex; gap: 6px; }
+    .action-btn { padding: 6px 12px; border-radius: 4px; border: none; font-size: .85rem; }
+    .view-btn { background: var(--brand-burgundy-dark); color: var(--brand-gold-bright); }
+    .edit-btn { background: var(--brand-gold); color: var(--brand-burgundy-dark); }
+    .delete-btn { background: var(--brand-burgundy-light); color: #fff; }
+    .status-badge { display: inline-block; padding: 4px 9px; border: 1px solid var(--border-color); border-radius: 12px; background: #F5F1EA; color: var(--brand-burgundy-dark); font-size: .78rem; font-weight: 600; }
+    .empty { padding: 20px; color: var(--text-muted); text-align: center; }
+
+    .modal-overlay { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: rgba(44,24,16,.5); backdrop-filter: blur(2px); }
+    .modal { width: 80vw; max-width: 950px; max-height: 90vh; overflow: auto; padding: 24px; border-top: 5px solid var(--brand-burgundy); border-radius: 10px; background: #fff; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+    .modal-header { margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+    .modal-header h2 { font-family: 'Montserrat', sans-serif; color: var(--brand-burgundy-dark); font-size: 1.4rem; }
+    .modal-footer { margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color); text-align: right; }
+    .form-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 14px; }
+    .field label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: .78rem; font-weight: 600; }
+    .field input, .field select { width: 100%; }
+    .readonly { background: #F5F1EA !important; }
+    .help-text { margin-top: 5px; color: var(--text-muted); font-size: .75rem; }
+    .validation-message { display: none; margin-top: 5px; color: #A11B28; font-size: .78rem; }
+    .validation-message.visible { display: block; }
+    #prProcessingOverlay { position: fixed; inset: 0; z-index: 10000; display: none; align-items: center; justify-content: center; background: rgba(250,246,238,.85); color: var(--brand-burgundy); font: 600 1.2rem 'Montserrat', sans-serif; }
+    .select2-container { width: 100% !important; }
+    .select2-container--open .select2-dropdown { z-index: 10001 !important; }
+    .select2-selection { min-height: 37px !important; border: 1px solid var(--border-color) !important; border-radius: 6px !important; }
+    .select2-selection__rendered { line-height: 35px !important; }
+    .select2-selection__arrow { height: 35px !important; }
+    @media (max-width: 900px) { .form-grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); } .search-row { justify-content: flex-start; flex-wrap: wrap; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="prHeader" class="flex flex-space">
+      <div><h1>Payment Receipts</h1><h2>Add and manage customer payments</h2></div>
+      <button id="prBtnNew"><i class="fa fa-plus"></i> New Payment Receipt</button>
+    </div>
+
+    <div class="search-row">
+      <select id="prSearchCriteria" class="search-select">
+        <option value="All">All</option><option value="PR ID">PR ID</option><option value="Customer Name">Customer Name</option><option value="SI ID">SI ID</option><option value="Invoice Num">Invoice Num</option><option value="PR Status">PR Status</option>
+      </select>
+      <input id="prSearchInput" class="search-input" placeholder="Search...">
+      <button id="prBtnSearch">Search</button><button id="prBtnClear" class="btn-clear">Clear</button>
+    </div>
+
+    <table id="prList"><thead><tr>
+      <th>PR Date</th><th>PR ID</th><th>Customer ID</th><th>Customer Name</th><th>State</th><th>City</th><th>SI ID</th><th>Invoice Num</th><th>PR Amount</th><th>PR Status</th><th>Actions</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+
+  <div id="prProcessingOverlay"><i class="fa fa-spinner fa-pulse"></i>&nbsp; Processing...</div>
+  <div id="prModalOverlay" class="modal-overlay"><div class="modal"><div class="modal-header"><h2 id="prModalTitle"></h2></div><div id="prModalBody"></div><div id="prModalFooter" class="modal-footer"></div></div></div>
+
+  <script>
+    let prAllData = [];
+    let prCustomers = [];
+    let prAvailableSIs = [];
+    let prCurrent = null;
+    let prMode = 'new';
+
+    const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    const num = value => Number(value) || 0;
+    const today = () => new Date().toISOString().slice(0, 10);
+    const money = value => num(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function showProcessing(show) { document.getElementById('prProcessingOverlay').style.display = show ? 'flex' : 'none'; }
+    function openModal() { document.getElementById('prModalOverlay').style.display = 'flex'; }
+    function closeModal() { document.getElementById('prModalOverlay').style.display = 'none'; prCurrent = null; prAvailableSIs = []; }
+    function alertError(error) { showProcessing(false); alert(error && error.message ? error.message : String(error)); }
+    function runServer(method, ...args) { return new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[method](...args)); }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('prBtnNew').onclick = prNew;
+      document.getElementById('prBtnSearch').onclick = prSearch;
+      document.getElementById('prBtnClear').onclick = () => { document.getElementById('prSearchInput').value = ''; prRenderList(prAllData); };
+      document.getElementById('prSearchInput').addEventListener('keydown', event => { if (event.key === 'Enter') prSearch(); });
+      document.getElementById('prModalOverlay').addEventListener('click', event => { if (event.target.id === 'prModalOverlay') closeModal(); });
+      prRefresh();
+    });
+
+    function prRefresh() {
+      showProcessing(true);
+      runServer('prGetAllPaymentReceipts').then(data => { prAllData = data || []; prRenderList(prAllData); showProcessing(false); }).catch(alertError);
+    }
+
+    function prSearch() {
+      const query = document.getElementById('prSearchInput').value.trim().toLowerCase();
+      const criterion = document.getElementById('prSearchCriteria').value;
+      if (!query) return prRenderList(prAllData);
+      prRenderList(prAllData.filter(row => {
+        const values = criterion === 'All' ? [row['PR ID'], row['Customer Name'], row['SI ID'], row['Invoice Num'], row['PR Status']] : [row[criterion]];
+        return values.some(value => String(value ?? '').toLowerCase().includes(query));
+      }));
+    }
+
+    function prRenderList(rows) {
+      const body = document.querySelector('#prList tbody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="11" class="empty">No payment receipts found.</td></tr>'; return; }
+      body.innerHTML = rows.map(row => `<tr>
+        <td>${esc(row['PR Date'])}</td><td>${esc(row['PR ID'])}</td><td>${esc(row['Customer ID'])}</td><td>${esc(row['Customer Name'])}</td><td>${esc(row['State'])}</td><td>${esc(row['City'])}</td><td>${esc(row['SI ID'])}</td><td>${esc(row['Invoice Num'])}</td><td>${money(row['PR Amount'])}</td><td><span class="status-badge">${esc(row['PR Status'] || 'Applied')}</span></td>
+        <td><div class="action-cell"><button class="action-btn view-btn" onclick="prView('${esc(row['PR ID'])}')"><i class="fa fa-eye"></i> View</button><button class="action-btn edit-btn" onclick="prEdit('${esc(row['PR ID'])}')"><i class="fa fa-pen"></i> Edit</button><button class="action-btn delete-btn" onclick="prDelete('${esc(row['PR ID'])}')"><i class="fa fa-trash"></i> Delete</button></div></td>
+      </tr>`).join('');
+    }
+
+    async function prNew() {
+      try {
+        prMode = 'new'; prCurrent = null; prAvailableSIs = []; showProcessing(true);
+        const [customers, prID] = await Promise.all([runServer('prGetCustomers'), runServer('prGeneratePRID')]);
+        prCustomers = customers || []; prCurrent = { header: { 'PR ID': prID, 'PR Status': 'Applied' } };
+        prRenderModal(); openModal(); showProcessing(false);
+      } catch (error) { alertError(error); }
+    }
+
+    async function prView(prID) {
+      try { showProcessing(true); prMode = 'view'; const [document, customers] = await Promise.all([runServer('prGetPaymentReceipt', prID), runServer('prGetCustomers')]); prCurrent = document; prCustomers = customers || []; prRenderModal(); openModal(); showProcessing(false); } catch (error) { alertError(error); }
+    }
+
+    async function prEdit(prID) {
+      try {
+        showProcessing(true); prMode = 'edit';
+        const [document, customers] = await Promise.all([runServer('prGetPaymentReceipt', prID), runServer('prGetCustomers')]);
+        prCurrent = document; prCustomers = customers || [];
+        prAvailableSIs = await runServer('prGetEligibleSalesInvoices', prCurrent.header['Customer ID'], prID);
+        prRenderModal(); openModal(); showProcessing(false);
+      } catch (error) { alertError(error); }
+    }
+
+    function prRenderModal() {
+      const header = prCurrent?.header || {};
+      const isView = prMode === 'view';
+      const isEdit = prMode === 'edit';
+      const customerOptions = prCustomers.map(customer => `<option value="${esc(customer['Customer ID'])}">${esc(customer['Customer ID'])} - ${esc(customer['Customer Name'])}</option>`).join('');
+      const currentSIOption = isView && header['SI ID'] ? `<option value="${esc(header['SI ID'])}">${esc(header['SI ID'])} — ${esc(header['Invoice Num'] || '')}</option>` : '';
+      const siOptions = currentSIOption + prAvailableSIs.map(si => `<option value="${esc(si['SI ID'])}">${esc(si['SI ID'])} — ${esc(si['Invoice Num'] || '')}</option>`).join('');
+      document.getElementById('prModalTitle').textContent = prMode === 'new' ? 'New Payment Receipt' : isEdit ? 'Edit Payment Receipt' : 'View Payment Receipt';
+      document.getElementById('prModalBody').innerHTML = `<div class="form-grid">
+        <div class="field"><label>PR Date</label><input id="prDate" type="date" value="${esc(header['PR Date'] || today())}" ${isView ? 'disabled' : ''}></div>
+        <div class="field"><label>PR ID</label><input id="prID" class="readonly" readonly value="${esc(header['PR ID'] || '')}"></div>
+        <div class="field"><label>PR Status</label><input class="readonly" readonly value="${esc(header['PR Status'] || 'Applied')}"></div>
+        <div class="field"><label>Customer</label><select id="prCustomer" ${isView || isEdit ? 'disabled' : ''}><option value="">Select customer...</option>${customerOptions}</select></div>
+        <div class="field"><label>Sales Invoice</label><select id="prSI" ${isView || isEdit ? 'disabled' : ''}><option value="">Select Sales Invoice...</option>${siOptions}</select></div>
+        <div class="field"><label>Invoice Num</label><input id="prInvoiceNum" class="readonly" readonly value="${esc(header['Invoice Num'])}"></div>
+        <div class="field"><label>State</label><input id="prState" class="readonly" readonly value="${esc(header['State'])}"></div>
+        <div class="field"><label>City</label><input id="prCity" class="readonly" readonly value="${esc(header['City'])}"></div>
+        <div class="field"><label>Available SI Balance</label><input id="prSIBalance" class="readonly" readonly value="${num(header['Available SI Balance']).toFixed(2)}"><div class="help-text">Reference only; SI Balance is calculated in the sheet.</div></div>
+        <div class="field"><label>PR Amount</label><input id="prAmount" type="number" step="0.01" min="0.01" value="${num(header['PR Amount']).toFixed(2)}" ${isView ? 'disabled' : ''}><div id="prAmountError" class="validation-message"></div></div>
+      </div>`;
+      document.getElementById('prModalFooter').innerHTML = `<button class="btn-clear" onclick="closeModal()">Close</button>${isView ? '' : '<button id="prSaveBtn"><i class="fa fa-save"></i> Save</button>'}`;
+      $('#prCustomer').select2({ dropdownParent: $('#prModalOverlay'), placeholder: 'Select customer...' });
+      $('#prSI').select2({ dropdownParent: $('#prModalOverlay'), placeholder: 'Select Sales Invoice...' });
+      $('#prCustomer').val(header['Customer ID'] || '').trigger('change.select2');
+      $('#prSI').val(header['SI ID'] || '').trigger('change.select2');
+      if (prMode === 'new') { $('#prCustomer').on('change', () => prCustomerChanged($('#prCustomer').val())); $('#prSI').on('change', () => prSIChanged($('#prSI').val())); }
+      if (!isView) { document.getElementById('prSaveBtn').onclick = prSave; document.getElementById('prAmount').addEventListener('input', prValidateAmount); prValidateAmount(); }
+    }
+
+    async function prCustomerChanged(customerID) {
+      const customer = prCustomers.find(row => String(row['Customer ID']) === String(customerID));
+      document.getElementById('prState').value = customer?.['State'] || ''; document.getElementById('prCity').value = customer?.['City'] || '';
+      document.getElementById('prInvoiceNum').value = ''; document.getElementById('prSIBalance').value = '0.00'; document.getElementById('prAmount').value = '0.00'; prValidateAmount();
+      try {
+        showProcessing(true); prAvailableSIs = customerID ? await runServer('prGetEligibleSalesInvoices', customerID, '') : [];
+        const select = $('#prSI'); select.empty().append('<option value="">Select Sales Invoice...</option>');
+        prAvailableSIs.forEach(si => select.append(new Option(`${si['SI ID']} — ${si['Invoice Num'] || ''}`, si['SI ID']))); select.val('').trigger('change.select2'); showProcessing(false);
+      } catch (error) { alertError(error); }
+    }
+
+    function prSIChanged(siID) {
+      const si = prAvailableSIs.find(row => String(row['SI ID']) === String(siID));
+      document.getElementById('prInvoiceNum').value = si?.['Invoice Num'] || '';
+      document.getElementById('prSIBalance').value = num(si?.['SI Balance']).toFixed(2);
+      document.getElementById('prAmount').value = num(si?.['SI Balance']).toFixed(2);
+      prValidateAmount();
+    }
+
+    function prValidateAmount() {
+      const amount = num(document.getElementById('prAmount').value); const balance = num(document.getElementById('prSIBalance').value); const message = document.getElementById('prAmountError');
+      if (amount <= 0) { message.textContent = 'PR Amount must be greater than zero.'; message.classList.add('visible'); return false; }
+      if (amount > balance) { message.textContent = `PR Amount cannot exceed the available SI Balance (${money(balance)}).`; message.classList.add('visible'); return false; }
+      message.textContent = ''; message.classList.remove('visible'); return true;
+    }
+
+    async function prSave() {
+      const customerID = $('#prCustomer').val(); const siID = $('#prSI').val();
+      if (!customerID || !siID) return alert('Please select a customer and Sales Invoice.');
+      if (!prValidateAmount()) return;
+      const payload = { master: { 'PR Date': document.getElementById('prDate').value, 'PR ID': document.getElementById('prID').value, 'Customer ID': customerID, 'SI ID': siID, 'PR Amount': num(document.getElementById('prAmount').value) } };
+      try { showProcessing(true); const result = await runServer('prSavePaymentReceipt', payload); closeModal(); prRefresh(); alert(`Payment Receipt ${result.prID} saved successfully.`); } catch (error) { alertError(error); }
+    }
+
+    async function prDelete(prID) {
+      if (!confirm(`Delete Payment Receipt ${prID}? This will reverse its payment effects and recalculate the Sales Invoice status.`)) return;
+      try { showProcessing(true); await runServer('prDeletePaymentReceipt', prID); prRefresh(); alert(`Payment Receipt ${prID} deleted successfully.`); } catch (error) { alertError(error); }
+    }
+  </script>
+</body>
+</html>
 
