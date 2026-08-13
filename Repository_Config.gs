@@ -53,21 +53,31 @@ const Registry = {
             sheet: "Delivery Receipts",
             headerRow: 1,
             primaryKey: "DR ID",
-            foreignKey: "SO ID"
+            foreignKey: "SO ID",
+            protectedFields: ["DR Balance"]
         },
 
         DeliveryDetails: {
             sheet: "Delivery Details",
             headerRow: 1,
             primaryKey: "SO DR Detail ID",
-            foreignKey: "DR ID"
+            foreignKey: "DR ID",
+            protectedFields: ["QTY Balance"]
         },
 
-        Payments: {
-            sheet: "Payments",
+        SalesInvoices: {
+            sheet: "Sales Invoices",
             headerRow: 1,
-            primaryKey: "Payment ID",
-            foreignKey: "PO ID"
+            primaryKey: "SI ID",
+            foreignKey: "DR ID",
+            protectedFields: ["SI Balance"]
+        },
+
+        PaymentReceipts: {
+            sheet: "Payment Receipts",
+            headerRow: 1,
+            primaryKey: "PR ID",
+            foreignKey: "SI ID"
         }
 
     },
@@ -141,8 +151,30 @@ Documents: {
   ]
 },
 
+SalesInvoice: {
+  headerTable: "SalesInvoices",
+  primaryKey: "SI ID",
+  idStrategy: {
+    type: "Sequence",
+    prefix: "SI-",
+    padding: 4
+  },
+  detailTables: [] // Header-only table (no detail line items)
+ 
+},
 
-    },
+PaymentReceipt: {
+  headerTable: "PaymentReceipts",
+  primaryKey: "PR ID",
+  idStrategy: {
+    type: "Sequence",
+    prefix: "PR-",
+    padding: 4
+  },
+  detailTables: [] // Header-only table (no detail line items)
+ },
+
+},
 
     Lookups: {
 
@@ -203,10 +235,7 @@ Documents: {
         "State",
         "City",
         "Total SO Amount",
-        "Total Received",
-        "SO Balance",
-        "Receipt Status",
-        "Shipping Status"
+
 
     ],
 
